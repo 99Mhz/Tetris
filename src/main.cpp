@@ -20,16 +20,22 @@
 #define BLOCKSIZE 16
 #define DRAWSIZE 14
 
-// 2. Pass the custom hardware SPI instance to your display constructor
+//screen size
+#define SCREEN_WIDTH 160
+#define SCREEN_HEIGHT 320
+
 Adafruit_ILI9341 tft = Adafruit_ILI9341(&SPI, TFT_DC, TFT_CS, TFT_RST);
 
-const uint8_t frameInterval = 30;
-const uint8_t rightButton = 3;
-const uint8_t leftButton = 4;     //5 on the new boards 4 on the proto
-const uint8_t dropButton = 5;     //4 on the new boards 5 on the proto
-const uint8_t rotateButton = 6;   
-const uint8_t gameRowCount = 20;
-const uint8_t gameColumnCount = 10;
+const uint8_t kFrameInterval = 30;
+const uint8_t kRightButton = 3;
+const uint8_t kLeftButton = 4;     //5 on the new boards 4 on the proto
+const uint8_t kDropButton = 5;     //4 on the new boards 5 on the proto
+const uint8_t kRotateButton = 6;   
+const uint8_t kGameRowCount = 20;
+const uint8_t kGameColumnCount = 10;
+const uint8_t kStartingColumn = 3;
+const uint8_t kStartingRow = 0;
+const uint8_t kStartingRotation = 0;
 
 //all states should be the same or the buttons will fire on startup
 bool gameOver = false;
@@ -46,10 +52,10 @@ int8_t rotateButtonState = HIGH;       // the current reading from the input pin
 int8_t rotateLastButtonState = HIGH;   // the previous reading from the input pin
 
 uint16_t frameCount = 0;
-uint16_t fallSpeed = 2;                  //30 = fall one frame per second at 30FPS 2 is very fast!
-uint16_t debounceDelay = 50;         // the debounce time; increase if the output flickers
-uint16_t leftButtonHeldDelay = 150; //??
-uint16_t rightButtonHeldDelay = 150; //??
+uint16_t fallSpeed = 2;                 //30 = fall one frame per second at 30FPS 2 is very fast!
+uint16_t debounceDelay = 50;            //the debounce time; increase if the output flickers
+uint16_t leftButtonHeldDelay = 150;     //microseconds before auto scroll sets in
+uint16_t rightButtonHeldDelay = 150;    
 uint16_t randomPiece = 0;
 uint16_t lastRandomPiece = 0;
 uint16_t nextRandomPiece = 0;
@@ -72,22 +78,22 @@ uint64_t rightButtonHeldMillis = 0;
     Holds color so we can drop rows and redraw the board
     TODO: perhaps make a class out of this
 */
-uint16_t gameArea[gameRowCount][gameColumnCount];
+uint16_t gameArea[kGameRowCount][kGameColumnCount];
 
 //to pick a random game piece
 static GamePiece pieces[7] = {
-  GamePiece(GamePiece::oBlock, ILI9341_YELLOW, 3, 0, 0),
-  GamePiece(GamePiece::sBlock, ILI9341_GREEN, 3, 0, 0),
-  GamePiece(GamePiece::zBlock, ILI9341_RED, 3, 0, 0),
-  GamePiece(GamePiece::lBlock, ILI9341_ORANGE, 3, 0, 0),
-  GamePiece(GamePiece::jBlock, ILI9341_BLUE, 3, 0, 0),
-  GamePiece(GamePiece::iBlock, ILI9341_CYAN, 3, 0, 0),
-  GamePiece(GamePiece::tBlock, ILI9341_MAGENTA, 3, 0, 0)
+  GamePiece(GamePiece::oBlock, ILI9341_YELLOW, kStartingColumn, kStartingRow, kStartingRotation),
+  GamePiece(GamePiece::sBlock, ILI9341_GREEN, kStartingColumn, kStartingRow, kStartingRotation),
+  GamePiece(GamePiece::zBlock, ILI9341_RED, kStartingColumn, kStartingRow, kStartingRotation),
+  GamePiece(GamePiece::lBlock, ILI9341_ORANGE, kStartingColumn, kStartingRow, kStartingRotation),
+  GamePiece(GamePiece::jBlock, ILI9341_BLUE, kStartingColumn, kStartingRow, kStartingRotation),
+  GamePiece(GamePiece::iBlock, ILI9341_CYAN, kStartingColumn, kStartingRow, kStartingRotation),
+  GamePiece(GamePiece::tBlock, ILI9341_MAGENTA, kStartingColumn, kStartingRow, kStartingRotation)
 };
 
 //Define an active piece
-GamePiece activePiece = GamePiece(GamePiece::oBlock, ILI9341_YELLOW, 3, 0, 0);
-GamePiece nextPiece = GamePiece(GamePiece::oBlock, ILI9341_YELLOW, 3, 0, 0);
+GamePiece activePiece = GamePiece(GamePiece::oBlock, ILI9341_YELLOW, kStartingColumn, kStartingRow, kStartingRotation);
+GamePiece nextPiece = GamePiece(GamePiece::oBlock, ILI9341_YELLOW, kStartingColumn, kStartingRow, kStartingRotation);
 
 //Function templates
 void readInputs();
@@ -136,17 +142,18 @@ void setup() {
   getNextPiece();
 
   //Setup the control buttons
-  pinMode(rotateButton, INPUT_PULLUP);
-  pinMode(dropButton, INPUT_PULLUP);
-  pinMode(rightButton, INPUT_PULLUP);
-  pinMode(leftButton, INPUT_PULLUP);
+  //I have SMD (0805) pads on the back of the board for external pull up resistors 10k Ohm
+  pinMode(kRotateButton, INPUT_PULLUP);
+  pinMode(kDropButton, INPUT_PULLUP);
+  pinMode(kRightButton, INPUT_PULLUP);
+  pinMode(kLeftButton, INPUT_PULLUP);
 
-  neopixelWrite(21, 0, 0, 0);  // Turn distracting onboard neopixel off (Pin, R, G, B)\
+  neopixelWrite(21, 0, 0, 0);  // Turn distracting onboard neopixel off (Pin, R, G, B)
 
   //rotate to go landscape USB to upper right 0,0 is upper left
   tft.setRotation(0);
   tft.fillScreen(ILI9341_BLACK);
-  tft.drawRect(0, 0, 160, 320, ILI9341_GREEN);
+  tft.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_GREEN); //size of the play area
   tft.setCursor(0, 0);
   tft.setTextColor(ILI9341_CYAN, ILI9341_BLACK);
   tft.setTextSize(3);
@@ -161,7 +168,7 @@ void loop() {
   readInputs();
  
   uint64_t currentMillis = millis();
-  if(currentMillis - previousMillis >= frameInterval) {
+  if(currentMillis - previousMillis >= kFrameInterval) {
     frameCount++;
 
     //save current millis
@@ -174,13 +181,10 @@ void loop() {
 }
 
 void readInputs() {
-  int32_t rotateReading = digitalRead(rotateButton);
-  int32_t dropReading = digitalRead(dropButton);
-  int32_t leftReading = digitalRead(leftButton);
-  int32_t rightReading = digitalRead(rightButton);
-
-  //Serial.println(leftReading); //rightReading is always zero
-  //left button is 1 by default but 0 when pushed
+  int32_t rotateReading = digitalRead(kRotateButton);
+  int32_t dropReading = digitalRead(kDropButton);
+  int32_t leftReading = digitalRead(kLeftButton);
+  int32_t rightReading = digitalRead(kRightButton);
 
   if(rotateReading != rotateLastButtonState) {
     rotateLastDebounceTime = millis();
@@ -211,6 +215,7 @@ void readInputs() {
         Serial.print("ROTATE Button Was pushed. Current row is: ");
         Serial.println(activePiece.getCurrentRow());
         //TODO: call canRotatePiece first!!
+        //      There is a bug here!
         activePiece.rotateCCW(tft); //-90
       }
     }
@@ -230,7 +235,7 @@ void readInputs() {
         Serial.print("  Current column is: ");
         Serial.println(activePiece.getCurrentColumn());
 
-        if(activePiece.canMoveLeft(gameArea, gameRowCount)) {
+        if(activePiece.canMoveLeft(gameArea, kGameRowCount)) {
           activePiece.moveLeft(tft);
         }
         //reset the hold counter
@@ -245,7 +250,7 @@ void readInputs() {
       if(millis() - leftButtonHeldMillis > leftButtonHeldDelay) {
         Serial.print("LEFT Button is Held. Current column is: ");
         Serial.println(activePiece.getCurrentColumn());
-        if(activePiece.canMoveLeft(gameArea, gameRowCount)) {
+        if(activePiece.canMoveLeft(gameArea, kGameRowCount)) {
           activePiece.moveLeft(tft);      
         }
         leftButtonHeldState = false;  //reset to get a new delay
@@ -265,7 +270,7 @@ void readInputs() {
         Serial.print("RIGHT Button Was pushed. Current row is: ");
         Serial.println(activePiece.getCurrentRow());
                 
-        if(activePiece.canMoveRight(gameArea, gameRowCount)) {
+        if(activePiece.canMoveRight(gameArea, kGameRowCount)) {
           activePiece.moveRight(tft);
         }
         //reset the hold counter
@@ -280,7 +285,7 @@ void readInputs() {
       if(millis() - rightButtonHeldMillis > rightButtonHeldDelay) {
         Serial.print("RIGHT Button is Held. Current column is: ");
         Serial.println(activePiece.getCurrentColumn());
-        if(activePiece.canMoveRight(gameArea, gameRowCount)) {
+        if(activePiece.canMoveRight(gameArea, kGameRowCount)) {
           activePiece.moveRight(tft);      
         }
         rightButtonHeldState = false; //reset to get a new delay
@@ -303,11 +308,11 @@ void readInputs() {
         Serial.print("In play from move down: ");
         Serial.println(activePiece.inplay());
 
-        while(activePiece.canMoveDown(gameArea, gameRowCount)) {
+        while(activePiece.canMoveDown(gameArea, kGameRowCount)) {
           activePiece.moveDown(tft);
         }
         //kill this piece, and place it in the gameArea array
-        activePiece.setInplay(false, gameArea, gameRowCount);
+        activePiece.setInplay(false, gameArea, kGameRowCount);
       }
     }
   }
@@ -324,8 +329,8 @@ void readInputs() {
           level = 1;
           totalRowsCleared = 0;
 
-          for(int32_t column=0; column<gameColumnCount; column++) {
-            for(int32_t row=0; row<gameRowCount; row++) {
+          for(int32_t column=0; column<kGameColumnCount; column++) {
+            for(int32_t row=0; row<kGameRowCount; row++) {
               gameArea[row][column] = 0;
             }
           }
@@ -365,7 +370,7 @@ void renderGraphics() {
     //Draw the active piece, and other game elements
     activePiece.draw(tft);
       //draw rectangle of game are for 16x16 block
-    tft.drawRect(0, 0, 160, 320, ILI9341_GREEN);
+    tft.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_GREEN);
   }
 }
 
@@ -440,7 +445,6 @@ void renderSetteledRow(int32_t row) {
 
 void getNextPiece() {
         // Set game piece to the next up
-        //activePiece = GamePiece(pieces[nextRandomPiece].gp, pieces[nextRandomPiece].color, 4, 0, 0);
         activePiece = pieces[nextRandomPiece];
 
         // Set nextup to a new random piece
@@ -467,9 +471,6 @@ void getNextPiece() {
         nextRandomPiece = randomPiece; 
 
         renderNextUp();
-      
-        //Testing clearing rows
-        //activePiece = GamePiece(GamePiece::cyanHero, CYAN, 4, 0, 0);
 }
 
 void checkFullRow() {
@@ -551,6 +552,7 @@ void updateGameLogic() {
     if (frameCount >= fallSpeed) {
 
       //Calculate level
+      //Could be a switch statement also, or better find a function!
       if(totalRowsCleared < 10) { level = 1; }
       else if(totalRowsCleared < 20) { level = 2; }
       else if(totalRowsCleared < 30) { level = 3; }
@@ -559,6 +561,7 @@ void updateGameLogic() {
       else { level = 6; } //!!
 
       //Calculate level speed
+      //Could be a switch statement also, or better find a function!
       if(level == 1) { fallSpeed = 22; }
       else if(level == 2) { fallSpeed = 18; }
       else if(level == 3) { fallSpeed = 14; }
@@ -572,20 +575,20 @@ void updateGameLogic() {
 
         getNextPiece();
  
-        if(!activePiece.canMoveDown(gameArea, gameRowCount))
+        if(!activePiece.canMoveDown(gameArea, kGameRowCount))
         {
           gameOver = true;
           Serial.printf("!!! Game Over !!! Final score is %d \n", score);
         }
       }
-      else if (activePiece.canMoveDown(gameArea, gameRowCount)) {
+      else if (activePiece.canMoveDown(gameArea, kGameRowCount)) {
         activePiece.updateLocation(tft, activePiece.getCurrentColumn(), activePiece.getCurrentRow() + 1);
         frameCount = 0; // Reset counter
         checkFullRow();
       }
       else {
           //kill this piece, and place it in the gameArea array
-            activePiece.setInplay(false, gameArea, gameRowCount);
+          activePiece.setInplay(false, gameArea, kGameRowCount);
       }
     }
   }
