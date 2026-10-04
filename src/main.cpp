@@ -1,3 +1,12 @@
+/*  main.cpp
+    Defines and impliments a game area, game loop and updates game objects to screen. 
+    Author: John WIltse
+    Date: 10/2026
+    Revisions: 
+
+    Open bugs:
+*/
+
 #include <Arduino.h>
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ILI9341.h> // Hardware-specific library for ST7789

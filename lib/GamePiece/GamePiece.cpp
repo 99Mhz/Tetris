@@ -1,9 +1,20 @@
+/*  GamePiece.cpp
+    impliments attributes and actions a game piece can perform while in play. 
+    Author: John WIltse
+    Date: 10/2026
+    Revisions: 
+
+    Open bugs: Finish canRotateCCW method. you can rotate a piece when next to another piece that should blocking it. 
+*/
+
 #include "GamePiece.h"
 
 //difference between these two is the boarder size
 #define BLOCKSIZE 16
 #define DRAWSIZE 14
 
+// defines the pieces in a 4x4 bounding block
+// all 4 rotation states are defined 
 PieceData GamePiece::oBlock = {
     {
         0x6600,  // State 0
@@ -83,6 +94,8 @@ void GamePiece::draw(Adafruit_ILI9341 &gfxContext) {
     int boarderSize = BLOCKSIZE-DRAWSIZE;
 
     // Loop through the rows and columns of the bounding box
+    // TODO: this loop gets run in multiple functions with litte modification. 
+    //       figure out a way to refactor for DRY-er code
     for (int r = 0; r < _boundingBoxSize; r++) {
         for (int c = 0; c < _boundingBoxSize; c++) {
             
@@ -106,7 +119,7 @@ void GamePiece::draw(Adafruit_ILI9341 &gfxContext) {
     }
 }
 
-bool GamePiece::canMoveLeft(uint16_t gameArea[][COLS], int rows) {
+bool GamePiece::canMoveLeft(uint16_t gameArea[][kCols], int rows) {
     //TODO: check if we hit another piece! bug
     if(_inPlay) {
         // Get the 16-bit integer for the current rotation state
@@ -135,8 +148,6 @@ bool GamePiece::canMoveLeft(uint16_t gameArea[][COLS], int rows) {
                         return false;
                     }              
                     else if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)] > 0) {
-                        Serial.print("left of piece: ");
-                        Serial.println(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)]);
                         Serial.println("Hit Another Piece going left");
                         return false;
                     }
@@ -147,11 +158,12 @@ bool GamePiece::canMoveLeft(uint16_t gameArea[][COLS], int rows) {
         return true;
     }
     else {
+        //we are not in play
         return false;
     }
 }
 
-bool GamePiece::canMoveRight(uint16_t gameArea[][COLS], int rows) {
+bool GamePiece::canMoveRight(uint16_t gameArea[][kCols], int rows) {
     //TODO: check if we hit another piece! bug
     if(_inPlay) {
         // Get the 16-bit integer for the current rotation state
@@ -172,8 +184,6 @@ bool GamePiece::canMoveRight(uint16_t gameArea[][COLS], int rows) {
                     // Calculate pixel coordinates
                     int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
                     int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-
-                    Serial.printf("pixelX %d\n", pixelX);
                     
                     if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
                         Serial.println("Hit Another Piece going right");
@@ -189,11 +199,12 @@ bool GamePiece::canMoveRight(uint16_t gameArea[][COLS], int rows) {
         return true;
     }
     else {
+        //We are not in play
         return false;
     }
 }
 
-bool GamePiece::canMoveDown(uint16_t gameArea[][COLS], int rows) {
+bool GamePiece::canMoveDown(uint16_t gameArea[][kCols], int rows) {
     if(_inPlay) {
         // Get the 16-bit integer for the current rotation state
         uint16_t currentBitmask = _shape.states[_rotationState]; 
@@ -223,19 +234,6 @@ bool GamePiece::canMoveDown(uint16_t gameArea[][COLS], int rows) {
                         Serial.println("Hit Bottom");
                         return false;
                     }
-                    /*
-                    Serial.print(c);
-                    Serial.print(" ");
-                    Serial.print(_column);
-                    Serial.print(" ");
-                    Serial.print(c * BLOCKSIZE);
-                    Serial.print(" ");
-                    Serial.print(_column * BLOCKSIZE);
-                    Serial.print(" ");
-                    Serial.print(pixelX);
-                    Serial.print(" ");
-                    Serial.println(pixelY);
-                    */
                 }
             }
         }
@@ -246,11 +244,11 @@ bool GamePiece::canMoveDown(uint16_t gameArea[][COLS], int rows) {
     }
 }
 
-bool GamePiece::canRotateCCW(uint16_t gameArea[][COLS], int rows) {
+bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
     //
     //TODO: test all this!!!!
     // for now this function does not get called. 
-    //
+    // this is intending to fix a bug where you can rotate when another piece should prevent it!
     if(_inPlay) {
         // Get the 16-bit integer for the next desired rotation state
         uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
@@ -292,12 +290,12 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][COLS], int rows) {
         }
         return true;
     }
-    return false; //can't rotate we are not in play
+    //can't rotate we are not in play
+    return false; 
 }
 
 void GamePiece::rotateCCW(Adafruit_ILI9341 &gfxContext) {
-    //TODO: need a can rotate function to disallow rotation 
-    //      when piece is blocked by other pieces from rotation
+    //TODO: need a can rotate function to disallow rotation. JohnW 10/2026 in progress
 
     if(_inPlay) {
         //erase the piece at the old position
@@ -313,20 +311,6 @@ void GamePiece::rotateCCW(Adafruit_ILI9341 &gfxContext) {
         //now redraw
         draw(gfxContext);
     }
-}
-
-void GamePiece::rotateCW(Adafruit_ILI9341 &gfxContext) {
-    //TODO: Nothing calls this because only CCW is allowed
- 
-    //erase the piece at the old position
-    erase(gfxContext); 
-
-    //figure out the new rotation state
-    //_rotationState = (_rotationState + 1) % 4;
-    _rotationState = (_rotationState + 3) % 4;
-    
-    //now redraw
-    draw(gfxContext);
 }
 
 void GamePiece::moveRight(Adafruit_ILI9341 &gfxContext) {
@@ -378,12 +362,10 @@ void GamePiece::updateLocation(Adafruit_ILI9341 &gfxContext, int column, int row
 
 }
 
-void GamePiece::setInplay(bool inplay, uint16_t gameArea[][COLS], int rows) {
+void GamePiece::setInplay(bool inplay, uint16_t gameArea[][kCols], int rows) {
 
     // Get the 16-bit integer for the current rotation state
     uint16_t currentBitmask = _shape.states[_rotationState]; 
-    //int dim = _shape.dimension; // 4 for this piece
-    //int boarderSize = BLOCKSIZE-DRAWSIZE;
 
     if(!inplay) {
         // Loop through the rows and columns of the bounding box
@@ -400,10 +382,6 @@ void GamePiece::setInplay(bool inplay, uint16_t gameArea[][COLS], int rows) {
                     // Calculate pixel coordinates
                     int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
                     int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-
-                    //Serial.print(pixelX);
-                    //Serial.print(" ");
-                    //Serial.println(pixelY);
 
                     gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] = _color;                
                 }
@@ -430,8 +408,6 @@ int GamePiece::getCurrentColumn() {
 void GamePiece::kickRight() {
     // Get the 16-bit integer for the current rotation state
     uint16_t currentBitmask = _shape.states[_rotationState]; 
-    //int dim = _shape.dimension; // 4 for this piece
-    //int boarderSize = BLOCKSIZE-DRAWSIZE;
 
     // Loop through the rows and columns of the bounding box
     for (int r = 0; r < _boundingBoxSize; r++) {
@@ -460,8 +436,6 @@ void GamePiece::kickRight() {
 void GamePiece::kickLeft() {
     // Get the 16-bit integer for the current rotation state
     uint16_t currentBitmask = _shape.states[_rotationState]; 
-    //int dim = _shape.dimension; // 4 for this piece
-    //int boarderSize = BLOCKSIZE-DRAWSIZE;
 
     // Loop through the rows and columns of the bounding box
     for (int r = 0; r < _boundingBoxSize; r++) {

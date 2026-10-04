@@ -1,3 +1,12 @@
+/*  GamePiece.h
+    Defines attributes and actions a game piece can perform while in play. 
+    Author: John WIltse
+    Date: 10/2026
+    Revisions: 
+
+    Open bugs: Finish canRotateCCW method. you can rotate a piece when next to another piece that should blocking it. 
+*/
+
 #ifndef GAMEPIECE_H
 #define GAMEPIECE_H
 
@@ -6,7 +15,7 @@
 #include <Adafruit_ILI9341.h> // Hardware-specific library for ST7789
 #include <array>
 
-const int COLS = 10; // Must be a compile-time constant
+const int kCols = 10; // Must be a compile-time constant
 
 struct Point {
     int x;
@@ -24,26 +33,15 @@ class GamePiece {
   private:
     bool _inPlay;
     uint16_t _color;
-    uint32_t _column;
-    uint32_t _row;
     uint16_t _borderColor = ILI9341_DARKGREY;
     uint16_t _boundingBoxSize = 4; //all pieces live in a 4x4 bounding box
     uint16_t _rotationState;
+    uint32_t _column;
+    uint32_t _row;
     PieceData _shape; //TODO: Piece _piece proper name is tetromino
 
   public:
    
-  /*    
-    TODO: Fix these
-    Actual names
-        I-Block (Line): A straight line four blocks long.
-        O-Block (Square): A 2x2 square block.
-        T-Block: A shape resembling a capital letter T.
-        S-Block: A zig-zag shape sloping to the right.
-        Z-Block: A zig-zag shape sloping to the left.
-        J-Block: An L-shape with a block flipped on the short side.
-        L-Block: A standard L-shape.
-  */
     static PieceData oBlock;
 
     static PieceData sBlock;
@@ -80,19 +78,19 @@ class GamePiece {
 
     int getCurrentColumn();
 
-    bool canMoveLeft(uint16_t gameArea[][COLS], int rows);
+    bool canMoveLeft(uint16_t gameArea[][kCols], int rows);
     
-    bool canMoveRight(uint16_t gameArea[][COLS], int rows);
+    bool canMoveRight(uint16_t gameArea[][kCols], int rows);
 
-    bool canMoveDown(uint16_t gameArea[][COLS], int rows);
+    bool canMoveDown(uint16_t gameArea[][kCols], int rows);
 
-    bool canRotateCCW(uint16_t gameArea[][COLS], int rows);
+    bool canRotateCCW(uint16_t gameArea[][kCols], int rows);
 
     void kickRight();
 
     void kickLeft();
 
-    void setInplay(bool inplay, uint16_t gameArea[][COLS], int rows);
+    void setInplay(bool inplay, uint16_t gameArea[][kCols], int rows);
 
     bool inplay();
 
