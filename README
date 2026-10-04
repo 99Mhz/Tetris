@@ -1,1 +1,39 @@
-Just starting this. more to come
+Playing around with creating a microcontroller Tetris clone.
+
+Hardware: 
+    Board: custom designed in Kicad. Manufactured by OSHPark
+    Processor: Waveshare ESP32 S3 Zero Mini N8R8
+                (https://www.amazon.com/dp/B0GV459V87?ref=ppx_yo2ov_dt_b_fed_asin_title)
+    Display: Waveshare 240×320, General 2.4inch LCD Display Module
+                https://www.waveshare.com/2.4inch-lcd-module.htm?srsltid=AU7gw4WnNeeqWn06D45OdX-GpwlfIWSpdMTAS1l7iwtigELVDS8mfyD0
+    Buttons/switch: Amazon find
+    Battery: 2000MAH single cell lipo. 3.7v
+    Battery Management: Adafruit Micro-Lipo Charger for LiPoly Batt with USB Type C Jack
+                        https://www.adafruit.com/product/4410
+                        Plug in USBC in the back to charge battery. 
+
+Case:
+    A case design is under way and this will be 3d-printed. I'll uplaad .stl files when I work out the design. 
+    
+Notes:
+    Code was built and uploaded to the microcontroller via MSCode/PlatformIO
+    See platformio.ini for configurations. 
+    This version has 2 configurations one for the 8MB Flash version and one for the 4MB Flash.
+    Default if the 4MB version. Pick your profile at the bottom ob VSCode with the Project Environment
+
+Code: 
+    The code is hacked together just to get the main functionality working. 
+    There may be, probably are, still bugs! 
+    I didn't write any tests but plan to do so now that its all in source control. After a morning of tracking down a nasty bug its about time. 
+    The code needs a lot of refactoring also. Updating the datatypes from int to uint16_t, uint32_t etc last week caused the bug! Needed 32 bits and changed it to 16 :(
+
+Play:
+    Top button rotates piece
+    Left button moves to the left
+    Right button moves to the right
+    Bottom button drops piece to the bottom
+
+    When game has ended press top/bottom buttons together will reset. 
+
+Images:
+    See images/ for pictures of the project.
