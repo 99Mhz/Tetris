@@ -26,6 +26,7 @@ Code:
     There may be, probably are, still bugs! 
     I didn't write any tests but plan to do so now that its all in source control. After a morning of tracking down a nasty bug its about time. 
     The code needs a lot of refactoring also. Updating the datatypes from int to uint16_t, uint32_t etc last week caused the bug! Needed 32 bits and changed it to 16 :(
+    There a LOT of Serial.print statements. On a full production unit these would be pulled out and Serial not used at all to improve startup time
 
 Play:
     Top button rotates piece
