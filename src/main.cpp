@@ -28,8 +28,8 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(&SPI, TFT_DC, TFT_CS, TFT_RST);
 
 const uint8_t kFrameInterval = 30;
 const uint8_t kRightButton = 3;
-const uint8_t kLeftButton = 4;     //5 on the new boards 4 on the proto
-const uint8_t kDropButton = 5;     //4 on the new boards 5 on the proto
+const uint8_t kLeftButton = 5;     //5 on the new boards 4 on the proto
+const uint8_t kDropButton = 4;     //4 on the new boards 5 on the proto
 const uint8_t kRotateButton = 6;   
 const uint8_t kGameRowCount = 20;
 const uint8_t kGameColumnCount = 10;
