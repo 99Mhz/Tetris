@@ -269,17 +269,17 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
                     int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
                     int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
                     
-                    if(gameArea[(pixelY/BLOCKSIZE) + 1][(pixelX/BLOCKSIZE)] > 0) {
-                        Serial.println("ROTATE: Hit Another Piece below");
-                        return false;
-                    }
-                    else if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
+                    if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
                         Serial.println("ROTATE: Hit Another Piece to the right");
                             return false;
                     }
                     else if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)] > 0) {
                         Serial.println("ROTATE: Hit Another Piece to the left");
                             return false;
+                    }
+                    else if(gameArea[(pixelY/BLOCKSIZE) + 1][(pixelX/BLOCKSIZE)] > 0) {
+                        Serial.println("ROTATE: Hit Another Piece below");
+                        return false;
                     }
                     else if (pixelY >= 304) {
                         Serial.println("Hit Bottom");
@@ -302,7 +302,7 @@ void GamePiece::rotateCCW(Adafruit_ILI9341 &gfxContext) {
         erase(gfxContext); 
         
         //figure out the new rotation state
-        //_rotationState = (_rotationState + 3) % 4;
+        //_rotationState = (_rotationState + 3) % 4; //for CW
         _rotationState = (_rotationState + 1) % 4;
 
         kickRight(); //if needed

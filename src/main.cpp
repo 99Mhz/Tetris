@@ -133,11 +133,11 @@ void setup() {
   //seed a random number
   randomSeed(analogRead(A0)); 
 
-  // Set nextup to a new random piece
+  //Set nextup to a new random piece
   //Create another NEXT piece
   nextRandomPiece = random(7);
 
-// Initialize SPI bus
+  //Initialize SPI bus
   SPI.begin(TFT_SCK, TFT_MISO, TFT_MOSI, TFT_CS);
   tft.begin();
 
@@ -223,9 +223,10 @@ void readInputs() {
       if (rotateButtonState == LOW) {
         Serial.print("ROTATE Button Was pushed. Current row is: ");
         Serial.println(activePiece.getCurrentRow());
-        //TODO: call canRotatePiece first!!
-        //      There is a bug here!
-        activePiece.rotateCCW(tft); //-90
+ 
+        if(activePiece.canRotateCCW(gameArea, kGameRowCount)) {
+          activePiece.rotateCCW(tft); //-90
+        }
       }
     }
   }
