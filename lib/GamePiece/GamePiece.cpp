@@ -265,20 +265,20 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
                 // Check if the bit at this position is a 1
                 if ((nextBitmask >> (15 - bitIndex)) & 1) {
 
-                    // Calculate pixel coordinates
+                    // Calculate where this block(bit) is on the game area
                     int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
                     int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
                     
                     if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
-                        Serial.println("ROTATE: Hit Another Piece to the right");
+                        Serial.println("ROTATE: Will hit Another Piece to the right");
                             return false;
                     }
                     else if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)] > 0) {
-                        Serial.println("ROTATE: Hit Another Piece to the left");
+                        Serial.println("ROTATE: Will hit Another Piece to the left");
                             return false;
                     }
                     else if(gameArea[(pixelY/BLOCKSIZE) + 1][(pixelX/BLOCKSIZE)] > 0) {
-                        Serial.println("ROTATE: Hit Another Piece below");
+                        Serial.println("ROTATE: Will hit Another Piece below");
                         return false;
                     }
                     else if (pixelY >= 304) {

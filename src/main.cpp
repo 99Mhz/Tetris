@@ -14,6 +14,7 @@
 #include <GamePiece.h>
 #include <SPI.h>
 #include <vector>
+#include <Preferences.h>
 
 // Define Waveshare ESP32-S3-Zero specific control pins
 #define TFT_CS   10
@@ -35,6 +36,16 @@
 
 Adafruit_ILI9341 tft = Adafruit_ILI9341(&SPI, TFT_DC, TFT_CS, TFT_RST);
 
+Preferences preferences;
+
+// Explicit 20-byte alignment for stable NVS storage
+struct HighScore {
+    char initials[4]; // Stores 3 characters + 1 null-terminator ("ROB\0")
+    int32_t score;    // 4-byte integer
+};
+
+HighScore topScores[3];
+
 const uint8_t kFrameInterval = 30;
 const uint8_t kRightButton = 3;
 const uint8_t kLeftButton = 5;     //5 on the new boards 4 on the proto
@@ -46,10 +57,19 @@ const uint8_t kStartingColumn = 3;
 const uint8_t kStartingRow = 0;
 const uint8_t kStartingRotation = 0;
 
+char playerInitials[4] = "AAA"; // Default starting string "AAA\0"
+int activeCharIndex = 0;        // Which letter we are editing (0, 1, or 2)
+bool isEnteringInitials = false; // Flag to tell your main loop to show this UI
+
+
 //all states should be the same or the buttons will fire on startup
 bool gameOver = false;
 bool leftButtonHeldState = false;
 bool rightButtonHeldState = false;
+//TODO: Make sure all these bools are needed
+bool scoreRecorded = false;
+bool oneTimeClear = false;
+bool oneTimeClearWinner = false;
 
 int8_t rightButtonState = HIGH;        // the current reading from the input pin
 int8_t rightLastButtonState = HIGH;    // the previous reading from the input pin
@@ -115,6 +135,12 @@ void renderSetteledRow(int32_t row);
 void getNextPiece();
 void checkFullRow();
 void updateGameLogic();
+bool compareScores(const HighScore& a, const HighScore& b);
+void addScore(const char* newInitials, int32_t newScore);
+void loadScores();
+void printScores();
+void updateInitialsDisplay();
+void showLeaderboardScreen();
 
 void setup() {
 
@@ -130,6 +156,10 @@ void setup() {
   Serial.println("Starting Tetris Clone on Waveshare esp32 s3 zero!");
   Serial.println("Display uses a Waveshare 2.4 inch LCD display module using SPI!");
 
+  loadScores();
+  //Testing only
+  printScores();  
+  
   //seed a random number
   randomSeed(analogRead(A0)); 
 
@@ -189,6 +219,175 @@ void loop() {
   }
 }
 
+void handleInitialsInput(bool upPressed, bool downPressed, bool rightPressed) {
+    if (!isEnteringInitials) return;
+
+    // 1. Handle UP Button (Scroll Alphabet Forward A -> Z)
+    if (upPressed) {
+        playerInitials[activeCharIndex]++;
+        if (playerInitials[activeCharIndex] > 'Z') {
+            playerInitials[activeCharIndex] = 'A'; // Wrap around to A
+        }
+        updateInitialsDisplay(); // Redraw your TFT text
+    }
+
+    // 2. Handle DOWN Button (Scroll Alphabet Backward Z -> A)
+    if (downPressed) {
+        playerInitials[activeCharIndex]--;
+        if (playerInitials[activeCharIndex] < 'A') {
+            playerInitials[activeCharIndex] = 'Z'; // Wrap around to Z
+        }
+        updateInitialsDisplay();
+    }
+
+    // 3. Handle RIGHT Button (Confirm Letter & Advance)
+    if (rightPressed) {
+        activeCharIndex++; // Move to next character slot
+
+        // If we finished the 3rd letter, we are done!
+        if (activeCharIndex >= 3) {
+            isEnteringInitials = false; 
+            activeCharIndex = 0; // Reset index for next time
+            
+            Serial.printf("Final Initials Locked In: %s\n", playerInitials);
+            
+            // Pass the locked-in initials and the final score to your save system
+            addScore(playerInitials, score); 
+            showLeaderboardScreen(); // Transition UI to scoreboard
+        } else {
+            updateInitialsDisplay(); // Redraw to move cursor highlight
+        }
+    }
+}
+
+void showLeaderboardScreen() {
+  Serial.println("=== CURRENT LEADERBOARD ===");
+  for (int i = 0; i < 3; i++) {
+    Serial.printf("%d. %s -> %d\n", i + 1, topScores[i].initials, topScores[i].score);
+  }
+  Serial.println("===========================");
+
+  tft.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_BLACK);
+  tft.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_GREEN);
+  tft.setTextSize(2);
+  tft.setCursor(25, 40);
+  tft.println("Game Over");
+  tft.println("\n\n*************");
+  tft.println("\n Leader Board");
+  tft.println("\n*************\n");
+  for(int i=0; i<3; i++) {
+    tft.printf("\n %s  %d\n", topScores[i].initials, topScores[i].score);
+  }
+  tft.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_GREEN);
+}
+
+void updateInitialsDisplay() {
+  for(int i=0; i<3; i++) {
+    if(activeCharIndex == i) { Serial.printf("Current -> "); }
+    Serial.printf("Initials: %d = %c\n", i, playerInitials[i]);
+  }
+
+  //TODO: somehow only do this once. lots of flicker
+  if(!oneTimeClearWinner) {
+    tft.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_BLACK);
+    oneTimeClearWinner = true;
+  }
+  //tft.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_GREEN);
+
+  tft.setTextSize(2);
+  tft.setCursor(25, 40);
+  tft.println("Game Over");
+
+  tft.println("\n\n*************");
+  tft.println("\n High score!");
+  tft.println("\n Enter Name");
+  tft.println("\n*************\n");
+
+  tft.printf("    %c %C %C\n", playerInitials[0], playerInitials[1], playerInitials[2]);
+
+  if(activeCharIndex == 0) {
+    //tft.setCursor(51, 144);
+    tft.print("    _    ");
+  }
+  if(activeCharIndex == 1) {
+    //tft.setCursor(51, 144);
+    tft.print("      _  ");
+  }
+  if(activeCharIndex == 2) {
+    //tft.setCursor(51, 144);
+    tft.print("        _");
+  }
+  tft.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_GREEN);
+}
+
+/* helper function for debugging */
+void printScores() {
+  Serial.println("=== CURRENT LEADERBOARD ===");
+  for (int i = 0; i < 3; i++) {
+      Serial.printf("%d. %s -> %d\n", i + 1, topScores[i].initials, topScores[i].score);
+  }
+  Serial.println("===========================");
+}
+
+
+void loadScores() {
+    preferences.begin("game-scores", false);
+    if (!preferences.isKey("raw_scores")) {
+        Serial.println("No scores found. Writing factory defaults...");
+        snprintf(topScores[0].initials, 4, "JEN"); topScores[0].score = 3;
+        snprintf(topScores[1].initials, 4, "TIM"); topScores[1].score = 2;
+        snprintf(topScores[2].initials, 4, "SAM"); topScores[2].score = 1;
+        preferences.putBytes("raw_scores", topScores, sizeof(topScores));
+    } else {
+        preferences.getBytes("raw_scores", topScores, sizeof(topScores));
+    }
+    preferences.end();
+}
+
+void addScore(const char* newInitials, int32_t newScore) {
+    if (!gameOver) {
+        Serial.println("Cant score until the game is over!.");
+        return;
+    }
+
+    //Allow tied scores, but make sure it can beat or match 3rd place
+    if (newScore < topScores[2].score) {
+        Serial.printf("%d is too low to qualify for Top 3.\n", newScore);
+        //gameOver = false; // Reset flag ??
+        return; 
+    }
+
+    Serial.printf("High Score Registered! Processing %s: %d\n", newInitials, newScore);
+
+    std::vector<HighScore> scoreVector;
+    for(int i = 0; i < 3; i++) {
+        scoreVector.push_back(topScores[i]);
+    }
+
+    HighScore newEntry;
+    snprintf(newEntry.initials, sizeof(newEntry.initials), "%s", newInitials);
+    newEntry.score = newScore;
+    scoreVector.push_back(newEntry);
+
+    // Stable sort keeps ties in the order they arrived
+    std::stable_sort(scoreVector.begin(), scoreVector.end(), compareScores);
+
+    preferences.begin("game-scores", false);
+    for (int i = 0; i < 3; i++) {
+        topScores[i] = scoreVector[i];
+    }
+
+    preferences.putBytes("raw_scores", topScores, sizeof(topScores));
+    preferences.end();
+    Serial.println("Scoreboard successfully updated on Flash!");
+    
+}
+
+// Sorting rule helper
+bool compareScores(const HighScore& a, const HighScore& b) {
+    return a.score > b.score; 
+}
+
 void readInputs() {
   int32_t rotateReading = digitalRead(kRotateButton);
   int32_t dropReading = digitalRead(kDropButton);
@@ -227,6 +426,17 @@ void readInputs() {
         if(activePiece.canRotateCCW(gameArea, kGameRowCount)) {
           activePiece.rotateCCW(tft); //-90
         }
+      }
+    }
+  }
+  else if(isEnteringInitials  && (millis() - rotateLastDebounceTime) > debounceDelay) {
+    // if the button state has changed:
+    if (rotateReading != rotateButtonState) {
+      rotateButtonState = rotateReading;
+
+      if (rotateButtonState == LOW) {
+        Serial.println("ROTATE Button Was pushed. For initials");
+        handleInitialsInput(true, false, false);
       }
     }
   }
@@ -302,6 +512,17 @@ void readInputs() {
       }
     }
   }
+  else if(isEnteringInitials&& (millis() - rightLastDebounceTime) > debounceDelay) {
+    // if the button state has changed:
+    if (rightReading != rightButtonState) {
+      rightButtonState = rightReading;
+
+      if (rightButtonState == LOW) { 
+        Serial.println("Rotate button was pushed entering initials");
+        handleInitialsInput(false, false, true);
+      }
+    }
+  }
 
   if (!gameOver && (millis() - dropLastDebounceTime) > debounceDelay) {
     // whatever the reading is at, it's been there for longer than the debounce
@@ -326,6 +547,17 @@ void readInputs() {
       }
     }
   }
+  else if(isEnteringInitials && (millis() - dropLastDebounceTime) > debounceDelay) {
+   // if the button state has changed:
+    if (dropReading != dropButtonState) {
+      dropButtonState = dropReading;
+
+      if (dropButtonState == LOW) { 
+        Serial.println("Drop button was pushed entering initials");
+        handleInitialsInput(false, true, false);
+      }
+    }
+  }
 
   if( gameOver
       && ((millis() - dropLastDebounceTime) > debounceDelay) 
@@ -338,6 +570,7 @@ void readInputs() {
           score = 0;
           level = 1;
           totalRowsCleared = 0;
+          oneTimeClearWinner = false;
 
           for(int32_t column=0; column<kGameColumnCount; column++) {
             for(int32_t row=0; row<kGameRowCount; row++) {
@@ -347,6 +580,8 @@ void readInputs() {
 
           tft.fillScreen(ILI9341_BLACK);
           gameOver = false;
+          scoreRecorded = false; 
+          oneTimeClear = false;
 
           updateGameLogic();
           renderGraphics();
@@ -372,15 +607,36 @@ void readInputs() {
 
 void renderGraphics() {
   if(gameOver) {
-    tft.setTextSize(3);
-    tft.setCursor(0, 150);
-    tft.print("Game Over");
+    if(!oneTimeClear) {
+      tft.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_BLACK);
+      tft.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_GREEN);
+      tft.setTextSize(2);
+      tft.setCursor(25, 60);
+      tft.print("Game Over");
+      showLeaderboardScreen();
+      oneTimeClear = true; //just do this once! fix this on reset
+    }
   }
   else {
     //Draw the active piece, and other game elements
     activePiece.draw(tft);
       //draw rectangle of game are for 16x16 block
     tft.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_GREEN);
+  }
+
+  if(gameOver && !scoreRecorded && !isEnteringInitials) {
+
+    //get top 3 scores. if this score is higher than any of them the allow initials
+    for(int i=0; i<3; i++) {
+      if(score > topScores[i].score) {
+        Serial.println("You have a high score! Enter initials");
+        isEnteringInitials = true; 
+        updateInitialsDisplay();
+        scoreRecorded = true;
+        //printScores();
+        break;
+      }
+    }
   }
 }
 
