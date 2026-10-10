@@ -269,6 +269,24 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
                     int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
                     int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
                     
+                    //TODO: check if kick is possible and allow kick
+                    //conjector has it that a piece won't kick with this code because there
+                    //is random memory beyond the game area. 
+                    /*   |  |  | I || x |
+                    -------------------
+                         | N| N| IN|| XN|   <-a rotate would hit this unknown value, and a kick never attempted 
+                    -------------------
+                         |  |  | I || 0 |
+                    -------------------
+                         |  |  | I || 0 |                             
+                    */
+                    // maybe the fix is I just don't test anything beyond the game area.
+                    // But maybe there is a fatle flaw of corruption memory by allowing pieces to go off board.
+                    // or allow virtually but not try to write anything out of bounds 
+                    
+                    //am I checking inbounds. this probably won't work because i'm not checking after the kick.
+                    //maybe need a can kick method?
+
                     if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
                         Serial.println("ROTATE: Will hit Another Piece to the right");
                             return false;
@@ -452,6 +470,7 @@ void GamePiece::kickLeft() {
                 int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
                 int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
                 
+                //piece is already rotated by this point
                 while(pixelX > 144) {
                     _column -= 1;
                     pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
