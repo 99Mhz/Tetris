@@ -424,6 +424,7 @@ void readInputs() {
         Serial.println(activePiece.getCurrentRow());
  
         if(activePiece.canRotateCCW(gameArea, kGameRowCount)) {
+          //Serial.println("Rotate allowed!");
           activePiece.rotateCCW(tft); //-90
         }
       }

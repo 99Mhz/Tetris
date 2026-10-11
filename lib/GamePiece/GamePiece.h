@@ -90,6 +90,10 @@ class GamePiece {
 
     void kickLeft();
 
+    bool canKickLeft(uint16_t gameArea[][kCols]);
+
+    bool canKickRight(uint16_t gameArea[][kCols]);
+
     void setInplay(bool inplay, uint16_t gameArea[][kCols], int rows);
 
     bool inplay();
