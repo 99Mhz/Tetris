@@ -249,8 +249,10 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
     //TODO: test all this!!!!
     // for now this function does not get called. 
     // this is intending to fix a bug where you can rotate when another piece should prevent it!
-    bool kickNeeded = false;
-    bool canKick = false;
+    bool bKickLeftNeeded = false;
+    bool bKickRightNeeded = false;
+    bool bCanKickLeft = false;
+    bool bCanKickRight = false;
 
     if(_inPlay) {
         // Get the 16-bit integer for the next desired rotation state
@@ -275,7 +277,8 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
                     //TODO: check if kick is possible and allow kick
                     //Don't check X > 9 however it MUST be able to kick! 
                     //Can we check the next pixel over and still stay within the game area? 
-                    if((pixelX/BLOCKSIZE + 1) >= 9 && (pixelX/BLOCKSIZE - 1) <= 0) {
+                    if((pixelX/BLOCKSIZE + 1) <= 9 && (pixelX/BLOCKSIZE - 1) >= 0) {
+                        Serial.println("Rotate: Within game area");
                         if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
                             Serial.println("ROTATE: Will hit Another Piece to the right");
                             Serial.printf("Y: %d X: %d Color: %d \n", (pixelY/BLOCKSIZE), (pixelX/BLOCKSIZE + 1), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)]);
@@ -283,29 +286,24 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
                         }
                         else if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)] > 0) {
                             Serial.println("ROTATE: Will hit Another Piece to the left");
-                            Serial.printf("Y: %d X: %d Color: %d \n", (pixelY/BLOCKSIZE), (pixelX/BLOCKSIZE - 1), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)]);
+                            Serial.printf("Y: %d X: %d Color: %d \n", (pixelY/BLOCKSIZE), (pixelX/BLOCKSIZE - 1), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)]);
                             return false;
                         }
                     }
                     else if((pixelX/BLOCKSIZE + 1) > 9) {
-                        kickNeeded = true;
+                        Serial.println("Rotate: Outside game area");
+                        bKickLeftNeeded = true;
                         if(canKickLeft(gameArea)) {
-                            canKick = true;
+                            bCanKickLeft = true;
                         }
                     }
-                    /* This is not right! happens when rotating into another single piece of block
-                    ROTATE Button Was pushed. Current row is: 5
-                    ROTATE Button Was pushed. Current row is: 6
-                    ROTATE Button Was pushed. Current row is: 7
-                    ROTATE Button Was pushed. Current row is: 8
-                    ROTATE Button Was pushed. Current row is: 9
-                    ROTATE Button Was pushed. Current row is: 9
-                    ROTATE: Will hit Another Piece below            <--- hit something and kept going!
-                    ROTATE Button Was pushed. Current row is: 10
-                    ROTATE Button Was pushed. Current row is: 11
-                    ROTATE Button Was pushed. Current row is: 11
-                    ROTATE Button Was pushed. Current row is: 12
-                    */
+                    else if((pixelX/BLOCKSIZE - 1) < 0) {
+                        Serial.println("Rotate: Outside game area");
+                        bKickRightNeeded = true;
+                        if(canKickRight(gameArea)) {
+                            bCanKickRight = true;
+                        }
+                    }
                     else if(gameArea[(pixelY/BLOCKSIZE) + 1][(pixelX/BLOCKSIZE)] > 0) {
                         Serial.println("ROTATE: Will hit Another Piece below");
                         return false;
@@ -317,12 +315,16 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
                 }
             }
         }
-        if(!kickNeeded) {
-            //we didn't need to kick so all is good
+        if(!bKickLeftNeeded && !bKickRightNeeded) {
+            //we didn't need to kick left or right so all is good
             return true;
         }
-        else if (canKick) {
-            //we need to kick but all is still good
+        else if (bKickLeftNeeded && bCanKickLeft) {
+            //we need to kick left but we can so all is still good
+            return true;
+        }
+        else if (bKickRightNeeded && bCanKickRight) {
+            //we need to kick right but can so all is still good
             return true;
         }
         else {
@@ -574,6 +576,70 @@ bool GamePiece::canKickLeft(uint16_t gameArea[][kCols]) {
 }
 
 bool GamePiece::canKickRight(uint16_t gameArea[][kCols]) {
-    //stub
-    return true;
+    if(_inPlay) {
+        // Get the 16-bit integer for the next desired rotation state
+        //in order to kick it must be combined with a rotation
+        uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
+
+        //save off the _column
+        uint32_t virtualColumn = _column;
+        
+        // Loop through the rows and columns of the bounding box
+        // first run kicks left
+        for (int r = 0; r < _boundingBoxSize; r++) {
+            for (int c = 0; c < _boundingBoxSize; c++) {
+                
+                // Calculate which bit we are checking (0 to 15)
+                // 4 bits per row r * 4 + what column we are on
+                int bitIndex = (r * 4) + c;
+                
+                // Check if the bit at this position is a 1
+                if ((nextBitmask >> (15 - bitIndex)) & 1) {
+    
+                    // Calculate pixel coordinates
+                    int pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
+                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
+
+                    //now kick it
+                    while(pixelX < 0) {
+                        virtualColumn += 1;
+                        pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
+                        Serial.println("We are seeing if we can kick right...");
+                    }   
+                    //at this point we have to check every piece one more time now that its rotated and kicked.              
+                    
+                    //Serial.printf("pixelX %d\n", pixelX);
+                }
+            }
+        }
+
+        Serial.println("Now check if anything interfers after kicking right...");
+        //second loop through see if the rotated and kicked piece interferes with another piece
+        for (int r = 0; r < _boundingBoxSize; r++) {
+            for (int c = 0; c < _boundingBoxSize; c++) {
+                
+                // Calculate which bit we are checking (0 to 15)
+                // 4 bits per row r * 4 + what column we are on
+                int bitIndex = (r * 4) + c;
+                
+                // Check if the bit at this position is a 1
+                if ((nextBitmask >> (15 - bitIndex)) & 1) {
+    
+                    // Calculate pixel coordinates
+                    int pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
+                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
+
+                    //now just check for interference
+                    if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
+                        Serial.println("Something interfers after kicking left...");
+                        return false; //bail out we are overlapping another piece
+                    }
+                }
+            }
+        }
+        //check every piece part and looks clean
+        Serial.println("Nothing interfers! after kicking left...");
+        return true;
+    }
+    return false; //we are not in play
 }
