@@ -274,39 +274,32 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
                     int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
                     int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
                     
-                    //TODO: check if kick is possible and allow kick
-                    //Don't check X > 9 however it MUST be able to kick! 
-                    //Can we check the next pixel over and still stay within the game area? 
-                    if((pixelX/BLOCKSIZE + 1) <= 9 && (pixelX/BLOCKSIZE - 1) >= 0) {
+                    //since we virtually rotated a part of the piece can be out of the game area
+                    //But this one is whitin the game area
+                    if((pixelX/BLOCKSIZE) <= 9 && (pixelX/BLOCKSIZE) >= 0) {
                         Serial.println("Rotate: Within game area");
-                        if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
-                            Serial.println("ROTATE: Will hit Another Piece to the right");
-                            Serial.printf("Y: %d X: %d Color: %d \n", (pixelY/BLOCKSIZE), (pixelX/BLOCKSIZE + 1), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)]);
-                            return false;
-                        }
-                        else if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)] > 0) {
-                            Serial.println("ROTATE: Will hit Another Piece to the left");
-                            Serial.printf("Y: %d X: %d Color: %d \n", (pixelY/BLOCKSIZE), (pixelX/BLOCKSIZE - 1), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)]);
+                        //since we are within the gamearea check the piece part with something in that located in the gamearea
+                        if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
+                            Serial.println("ROTATE: Will hit Another Piece at:");
+                            Serial.printf("X: %d Y: %d Color: %d \n", (pixelX/BLOCKSIZE), (pixelY/BLOCKSIZE), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)]);
                             return false;
                         }
                     }
-                    else if((pixelX/BLOCKSIZE + 1) > 9) {
+                    //this piece part is right of the gamearea. Allow rotate only if it cn kick left
+                    else if((pixelX/BLOCKSIZE) > 9) {
                         Serial.println("Rotate: Outside game area");
                         bKickLeftNeeded = true;
                         if(canKickLeft(gameArea)) {
                             bCanKickLeft = true;
                         }
                     }
-                    else if((pixelX/BLOCKSIZE - 1) < 0) {
+                    //this piece part if left of the gamearea. Allow rotate only if it cn kick right
+                    else if((pixelX/BLOCKSIZE) < 0) {
                         Serial.println("Rotate: Outside game area");
                         bKickRightNeeded = true;
                         if(canKickRight(gameArea)) {
                             bCanKickRight = true;
                         }
-                    }
-                    else if(gameArea[(pixelY/BLOCKSIZE) + 1][(pixelX/BLOCKSIZE)] > 0) {
-                        Serial.println("ROTATE: Will hit Another Piece below");
-                        return false;
                     }
                     else if (pixelY >= 304) {
                         Serial.println("Hit Bottom");
@@ -315,6 +308,8 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
                 }
             }
         }
+
+        //now that every piece part has been checked for interference with other pieces
         if(!bKickLeftNeeded && !bKickRightNeeded) {
             //we didn't need to kick left or right so all is good
             return true;
@@ -328,7 +323,7 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
             return true;
         }
         else {
-            //kick is needed but we can't without running into another piece. 
+            //kick is needed in some direction but we can't without running into another piece. 
             return false;
         }
     }
