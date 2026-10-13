@@ -58,6 +58,8 @@ class GamePiece {
 
     GamePiece(const PieceData& shape, int color, int column, int row, int rotation);
 
+    void forEachActiveBlock(std::function<void(int r, int c, int pixelX, int pixelY)> action, uint16_t bitmask = 0);
+
     void draw(Adafruit_ILI9341 &gfxContext);
 
     void rotateCCW(Adafruit_ILI9341 &gfxContext);

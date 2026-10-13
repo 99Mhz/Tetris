@@ -88,14 +88,11 @@ GamePiece::GamePiece(const PieceData& shape, int color, int column, int row, int
   _rotationState = rotationState;
 }
 
-void GamePiece::draw(Adafruit_ILI9341 &gfxContext) {
-    // Get the 16-bit integer for the current rotation state
-    uint16_t currentBitmask = _shape.states[_rotationState]; 
-    int boarderSize = BLOCKSIZE-DRAWSIZE;
-
+void GamePiece::forEachActiveBlock(std::function<void(int r, int c, int pixelX, int pixelY) > action, uint16_t bitmask) {
+    //no bitmask was passed
+    uint16_t currentBitmask = (bitmask == 0) ? _shape.states[_rotationState] : bitmask;
+    
     // Loop through the rows and columns of the bounding box
-    // TODO: this loop gets run in multiple functions with litte modification. 
-    //       figure out a way to refactor for DRY-er code
     for (int r = 0; r < _boundingBoxSize; r++) {
         for (int c = 0; c < _boundingBoxSize; c++) {
             
@@ -105,249 +102,170 @@ void GamePiece::draw(Adafruit_ILI9341 &gfxContext) {
             
             // Check if the bit at this position is a 1
             if ((currentBitmask >> (15 - bitIndex)) & 1) {
-                
+
                 // Calculate pixel coordinates
                 int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
                 int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
 
-                //gfxContext.startWrite();
-                // Draw the block
-                gfxContext.fillRect(pixelX+boarderSize, pixelY+boarderSize, 
-                    DRAWSIZE, DRAWSIZE, _color);
+                action(r, c, pixelX, pixelY);
+
             }
         }
     }
+}
+
+void GamePiece::draw(Adafruit_ILI9341 &gfxContext) {
+
+    int boarderSize = BLOCKSIZE-DRAWSIZE;
+
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+        // Draw the block
+        gfxContext.fillRect(pixelX+boarderSize, pixelY+boarderSize, 
+            DRAWSIZE, DRAWSIZE, _color);
+    });
+
 }
 
 bool GamePiece::canMoveLeft(uint16_t gameArea[][kCols], int rows) {
+    if (!_inPlay) return false;
+
+    bool canMove = true;
+
     //TODO: check if we hit another piece! bug
-    if(_inPlay) {
-        // Get the 16-bit integer for the current rotation state
-        uint16_t currentBitmask = _shape.states[_rotationState]; 
-        //int boarderSize = BLOCKSIZE-DRAWSIZE;
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+        Serial.printf("pixelX %d\n", pixelX);
 
-        // Loop through the rows and columns of the bounding box
-        for (int r = 0; r < _boundingBoxSize; r++) {
-            for (int c = 0; c < _boundingBoxSize; c++) {
-                
-                // Calculate which bit we are checking (0 to 15)
-                // 4 bits per row r * 4 + what column we are on
-                int bitIndex = (r * 4) + c;
-                
-                // Check if the bit at this position is a 1
-                if ((currentBitmask >> (15 - bitIndex)) & 1) {
-    
-                    // Calculate pixel coordinates
-                    int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
-                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-                    
-                    Serial.printf("pixelX %d\n", pixelX);
-
-                    if(pixelX <= 0) {
-                        Serial.println("Hit left side of the wall");
-                        return false;
-                    }              
-                    else if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)] > 0) {
-                        Serial.println("Hit Another Piece going left");
-                        return false;
-                    }
-                     
-                }
-            }
+        if(pixelX <= 0) {
+            Serial.println("Hit left side of the wall");
+            canMove = false;
+        }              
+        else if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)] > 0) {
+            Serial.println("Hit Another Piece going left");
+            canMove = false;
         }
-        return true;
-    }
-    else {
-        //we are not in play
-        return false;
-    }
+    });
+
+    return canMove;
 }
 
 bool GamePiece::canMoveRight(uint16_t gameArea[][kCols], int rows) {
-    //TODO: check if we hit another piece! bug
-    if(_inPlay) {
-        // Get the 16-bit integer for the current rotation state
-        uint16_t currentBitmask = _shape.states[_rotationState]; 
-        //int boarderSize = BLOCKSIZE-DRAWSIZE;
-
-        // Loop through the rows and columns of the bounding box
-        for (int r = 0; r < _boundingBoxSize; r++) {
-            for (int c = 0; c < _boundingBoxSize; c++) {
-                
-                // Calculate which bit we are checking (0 to 15)
-                // 4 bits per row r * 4 + what column we are on
-                int bitIndex = (r * 4) + c;
-                
-                // Check if the bit at this position is a 1
-                if ((currentBitmask >> (15 - bitIndex)) & 1) {
+    if(!_inPlay) { return false; }
     
-                    // Calculate pixel coordinates
-                    int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
-                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-                    
-                    if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
-                        Serial.println("Hit Another Piece going right");
-                        return false;
-                    }
-                    else if(pixelX >= 144) {
-                        Serial.println("Hit right side of the wall");
-                        return false;
-                    }
-                }
-            }
+    bool canMove = true;
+
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+        if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
+            Serial.println("Hit Another Piece going right");
+            canMove = false;
         }
-        return true;
-    }
-    else {
-        //We are not in play
-        return false;
-    }
+        else if(pixelX >= 144) {
+            Serial.println("Hit right side of the wall");
+            canMove = false;
+        }
+    });
+
+    return canMove;
 }
 
 bool GamePiece::canMoveDown(uint16_t gameArea[][kCols], int rows) {
-    if(_inPlay) {
-        // Get the 16-bit integer for the current rotation state
-        uint16_t currentBitmask = _shape.states[_rotationState]; 
-        //int boarderSize = BLOCKSIZE-DRAWSIZE;
-
-        // Loop through the rows and columns of the bounding box
-        // Looking for the bottom >= 304
-        for (int r = 0; r < _boundingBoxSize; r++) {
-            for (int c = 0; c < _boundingBoxSize; c++) {
-                
-                // Calculate which bit we are checking (0 to 15)
-                // 4 bits per row r * 4 + what column we are on
-                int bitIndex = (r * 4) + c;
-                
-                // Check if the bit at this position is a 1
-                if ((currentBitmask >> (15 - bitIndex)) & 1) {
+    if(!_inPlay) { return false; }
     
-                    // Calculate pixel coordinates
-                    int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
-                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-                    
-                    if(gameArea[(pixelY/BLOCKSIZE) + 1][(pixelX/BLOCKSIZE)] > 0) {
-                        Serial.println("Hit Another Piece going down");
-                        return false;
-                    }
-                    else if (pixelY >= 304) {
-                        Serial.println("Hit Bottom");
-                        return false;
-                    }
-                }
-            }
+    bool canMove = true;
+
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+        if(gameArea[(pixelY/BLOCKSIZE) + 1][(pixelX/BLOCKSIZE)] > 0) {
+            Serial.println("Hit Another Piece going down");
+            canMove = false;
         }
-        return true;
-    }
-    else {
-        return false;
-    }
+        else if (pixelY >= 304) {
+            Serial.println("Hit Bottom");
+            canMove = false;
+        }
+    });
+
+    return canMove;
 }
 
 bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
-    //
-    //TODO: test all this!!!!
-    // for now this function does not get called. 
-    // this is intending to fix a bug where you can rotate when another piece should prevent it!
+    if(!_inPlay) { return false; }
+
     bool bKickLeftNeeded = false;
     bool bKickRightNeeded = false;
     bool bCanKickLeft = false;
     bool bCanKickRight = false;
+    bool canRotate = true;
 
-    if(_inPlay) {
-        // Get the 16-bit integer for the next desired rotation state
-        uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
+    // Get the 16-bit integer for the next desired rotation state
+    uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
 
-        // Loop through the rows and columns of the bounding box
-        // Looking for the bottom >= 304
-        for (int r = 0; r < _boundingBoxSize; r++) {
-            for (int c = 0; c < _boundingBoxSize; c++) {
-                
-                // Calculate which bit we are checking (0 to 15)
-                // 4 bits per row r * 4 + what column we are on
-                int bitIndex = (r * 4) + c;
-                
-                // Check if the bit at this position is a 1
-                if ((nextBitmask >> (15 - bitIndex)) & 1) {
-
-                    // Calculate where this block(bit) is on the game area
-                    int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
-                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-                    
-                    //since we virtually rotated a part of the piece can be out of the game area
-                    //But this one is whitin the game area
-                    if((pixelX/BLOCKSIZE) <= 9 && (pixelX/BLOCKSIZE) >= 0) {
-                        Serial.println("Rotate: Within game area");
-                        //since we are within the gamearea check the piece part with something in that located in the gamearea
-                        if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
-                            Serial.println("ROTATE: Will hit Another Piece at:");
-                            Serial.printf("X: %d Y: %d Color: %d \n", (pixelX/BLOCKSIZE), (pixelY/BLOCKSIZE), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)]);
-                            return false;
-                        }
-                    }
-                    //this piece part is right of the gamearea. Allow rotate only if it cn kick left
-                    else if((pixelX/BLOCKSIZE) > 9) {
-                        Serial.println("Rotate: Outside game area");
-                        bKickLeftNeeded = true;
-                        if(canKickLeft(gameArea)) {
-                            bCanKickLeft = true;
-                        }
-                    }
-                    //this piece part if left of the gamearea. Allow rotate only if it cn kick right
-                    else if((pixelX/BLOCKSIZE) < 0) {
-                        Serial.println("Rotate: Outside game area");
-                        bKickRightNeeded = true;
-                        if(canKickRight(gameArea)) {
-                            bCanKickRight = true;
-                        }
-                    }
-                    else if (pixelY >= 304) {
-                        Serial.println("Hit Bottom");
-                        return false;
-                    }
-                }
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+        //since we virtually rotated a part of the piece can be out of the game area
+        //But this one is whitin the game area
+        if((pixelX/BLOCKSIZE) <= 9 && (pixelX/BLOCKSIZE) >= 0) {
+            Serial.println("Rotate: Within game area");
+            //since we are within the gamearea check the piece part with something in that located in the gamearea
+            if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
+                Serial.println("ROTATE: Will hit Another Piece at:");
+                Serial.printf("X: %d Y: %d Color: %d \n", (pixelX/BLOCKSIZE), (pixelY/BLOCKSIZE), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)]);
+                canRotate = false;
             }
         }
+        //this piece part is right of the gamearea. Allow rotate only if it cn kick left
+        else if((pixelX/BLOCKSIZE) > 9) {
+            Serial.println("Rotate: Outside game area");
+            bKickLeftNeeded = true;
+            if(canKickLeft(gameArea)) {
+                bCanKickLeft = true;
+            }
+        }
+        //this piece part if left of the gamearea. Allow rotate only if it cn kick right
+        else if((pixelX/BLOCKSIZE) < 0) {
+            Serial.println("Rotate: Outside game area");
+            bKickRightNeeded = true;
+            if(canKickRight(gameArea)) {
+                bCanKickRight = true;
+            }
+        }
+        else if (pixelY >= 304) {
+            Serial.println("Hit Bottom");
+            canRotate = false;
+        }
+    }, nextBitmask);
 
-        //now that every piece part has been checked for interference with other pieces
-        if(!bKickLeftNeeded && !bKickRightNeeded) {
-            //we didn't need to kick left or right so all is good
-            return true;
-        }
-        else if (bKickLeftNeeded && bCanKickLeft) {
-            //we need to kick left but we can so all is still good
-            return true;
-        }
-        else if (bKickRightNeeded && bCanKickRight) {
-            //we need to kick right but can so all is still good
-            return true;
-        }
-        else {
-            //kick is needed in some direction but we can't without running into another piece. 
-            return false;
-        }
+    //now that every piece part has been checked for interference with other pieces
+    if(!bKickLeftNeeded && !bKickRightNeeded) {
+        //we didn't need to kick left or right so all is good
+        return true;
     }
-    //can't rotate we are not in play
-    return false; 
+    else if (bKickLeftNeeded && bCanKickLeft) {
+        //we need to kick left but we can so all is still good
+        return true;
+    }
+    else if (bKickRightNeeded && bCanKickRight) {
+        //we need to kick right but can so all is still good
+        return true;
+    }
+    else {
+        //kick is needed in some direction but we can't without running into another piece. 
+        return canRotate;
+    }
 }
 
 void GamePiece::rotateCCW(Adafruit_ILI9341 &gfxContext) {
-    //TODO: need a can rotate function to disallow rotation. JohnW 10/2026 in progress
+    if(!_inPlay) { return; }
 
-    if(_inPlay) {
-        //erase the piece at the old position
-        erase(gfxContext); 
-        
-        //figure out the new rotation state
-        //_rotationState = (_rotationState + 3) % 4; //for CW
-        _rotationState = (_rotationState + 1) % 4;
-
-        kickRight(); //if needed
-        kickLeft(); //if needed
+    //erase the piece at the old position
+    erase(gfxContext); 
     
-        //now redraw
-        draw(gfxContext);
-    }
+    //figure out the new rotation state
+    //_rotationState = (_rotationState + 3) % 4; //for CW
+    _rotationState = (_rotationState + 1) % 4;
+
+    kickRight(); //if needed
+    kickLeft(); //if needed
+
+    //now redraw
+    draw(gfxContext);
 }
 
 void GamePiece::moveRight(Adafruit_ILI9341 &gfxContext) {
@@ -401,29 +319,10 @@ void GamePiece::updateLocation(Adafruit_ILI9341 &gfxContext, int column, int row
 
 void GamePiece::setInplay(bool inplay, uint16_t gameArea[][kCols], int rows) {
 
-    // Get the 16-bit integer for the current rotation state
-    uint16_t currentBitmask = _shape.states[_rotationState]; 
-
     if(!inplay) {
-        // Loop through the rows and columns of the bounding box
-        for (int r = 0; r < _boundingBoxSize; r++) {
-            for (int c = 0; c < _boundingBoxSize; c++) {
-                
-                // Calculate which bit we are checking (0 to 15)
-                // 4 bits per row r * 4 + what column we are on
-                int bitIndex = (r * 4) + c;
-                
-                // Check if the bit at this position is a 1
-                if ((currentBitmask >> (15 - bitIndex)) & 1) {
-    
-                    // Calculate pixel coordinates
-                    int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
-                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-
-                    gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] = _color;                
-                }
-            }
-        }
+        forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+            gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] = _color;
+        });
     }
 
     //kill the piece so we don't record it again!
@@ -443,198 +342,96 @@ int GamePiece::getCurrentColumn() {
 }
 
 void GamePiece::kickRight() {
-    // Get the 16-bit integer for the current rotation state
-    uint16_t currentBitmask = _shape.states[_rotationState]; 
 
-    // Loop through the rows and columns of the bounding box
-    for (int r = 0; r < _boundingBoxSize; r++) {
-        for (int c = 0; c < _boundingBoxSize; c++) {
-            
-            // Calculate which bit we are checking (0 to 15)
-            // 4 bits per row r * 4 + what column we are on
-            int bitIndex = (r * 4) + c;
-            
-            // Check if the bit at this position is a 1
-            if ((currentBitmask >> (15 - bitIndex)) & 1) {
- 
-                // Calculate pixel coordinates
-                int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
-                int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-                
-                while(pixelX < 0) {
-                    _column += 1;
-                    pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
-                }                
-            }
-        }
-    }
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+    
+        while(pixelX < 0) {
+            _column += 1;
+            pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
+        }                
+    });
 }
 
 void GamePiece::kickLeft() {
-    // Get the 16-bit integer for the current rotation state
-    uint16_t currentBitmask = _shape.states[_rotationState]; 
 
-    // Loop through the rows and columns of the bounding box
-    for (int r = 0; r < _boundingBoxSize; r++) {
-        for (int c = 0; c < _boundingBoxSize; c++) {
-            
-            // Calculate which bit we are checking (0 to 15)
-            // 4 bits per row r * 4 + what column we are on
-            int bitIndex = (r * 4) + c;
-            
-            // Check if the bit at this position is a 1
-            if ((currentBitmask >> (15 - bitIndex)) & 1) {
- 
-                // Calculate pixel coordinates
-                int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
-                int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-            
-                //piece is already rotated by this point
-                while(pixelX > 144) {
-                    _column -= 1;
-                    pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
-                }                
-            }
-        }
-    }
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+    
+        //piece is already rotated by this point
+        while(pixelX > 144) {
+            _column -= 1;
+            pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
+        }                
+    });
 }
 
 bool GamePiece::canKickLeft(uint16_t gameArea[][kCols]) {
+    if(!_inPlay) { return false; }
 
-    if(_inPlay) {
-        // Get the 16-bit integer for the next desired rotation state
-        //in order to kick it must be combined with a rotation
-        uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
+    bool canKick = true;
 
+    // Get the 16-bit integer for the next desired rotation state
+    uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
+
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
         //save off the _column
         uint32_t virtualColumn = _column;
-        
-        // Loop through the rows and columns of the bounding box
-        // first run kicks left
-        for (int r = 0; r < _boundingBoxSize; r++) {
-            for (int c = 0; c < _boundingBoxSize; c++) {
-                
-                // Calculate which bit we are checking (0 to 15)
-                // 4 bits per row r * 4 + what column we are on
-                int bitIndex = (r * 4) + c;
-                
-                // Check if the bit at this position is a 1
-                if ((nextBitmask >> (15 - bitIndex)) & 1) {
-    
-                    // Calculate pixel coordinates
-                    int pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
-                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
 
-                    //now kick it
-                    while(pixelX > 144) {
-                        virtualColumn -= 1;
-                        pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
-                        Serial.println("We are seeing if we can kick left...");
-                    }   
-                    //at this point we have to check every piece one more time now that its rotated and kicked.              
-                    
-                    //Serial.printf("pixelX %d\n", pixelX);
-                }
-            }
+        //now kick it
+        while(pixelX > 144) {
+            virtualColumn -= 1;
+            pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
+            Serial.println("We are seeing if we can kick left...");
+        }   
+    }, nextBitmask);
+
+    //at this point we have to check every piece one more time now that its rotated and kicked.              
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+        //save off the _column
+        uint32_t virtualColumn = _column;
+
+        //now just check for interference
+        if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
+            Serial.println("Something interfers after kicking left...");
+            canKick = false; //bail out we are overlapping another piece
         }
+    }, nextBitmask);
 
-        Serial.println("Now check if anything interfers after kicking left...");
-        //second loop through see if the rotated and kicked piece interferes with another piece
-        //if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0)
-        for (int r = 0; r < _boundingBoxSize; r++) {
-            for (int c = 0; c < _boundingBoxSize; c++) {
-                
-                // Calculate which bit we are checking (0 to 15)
-                // 4 bits per row r * 4 + what column we are on
-                int bitIndex = (r * 4) + c;
-                
-                // Check if the bit at this position is a 1
-                if ((nextBitmask >> (15 - bitIndex)) & 1) {
-    
-                    // Calculate pixel coordinates
-                    int pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
-                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-
-                    //now just check for interference
-                    if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
-                        Serial.println("Something interfers after kicking left...");
-                        return false; //bail out we are overlapping another piece
-                    }
-                }
-            }
-        }
-        //check every piece part and looks clean
-        Serial.println("Nothing interfers! after kicking left...");
-        return true;
-    }
-    return false; //we are not in play
+    //check every piece part and looks clean
+    Serial.println("Nothing interfers! after kicking left...");
+    return canKick;
 }
 
 bool GamePiece::canKickRight(uint16_t gameArea[][kCols]) {
-    if(_inPlay) {
-        // Get the 16-bit integer for the next desired rotation state
-        //in order to kick it must be combined with a rotation
-        uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
+    if(!_inPlay) { return false; }
 
+    bool canKick = true;
+
+    // Get the 16-bit integer for the next desired rotation state
+    uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
+
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
         //save off the _column
         uint32_t virtualColumn = _column;
-        
-        // Loop through the rows and columns of the bounding box
-        // first run kicks left
-        for (int r = 0; r < _boundingBoxSize; r++) {
-            for (int c = 0; c < _boundingBoxSize; c++) {
-                
-                // Calculate which bit we are checking (0 to 15)
-                // 4 bits per row r * 4 + what column we are on
-                int bitIndex = (r * 4) + c;
-                
-                // Check if the bit at this position is a 1
-                if ((nextBitmask >> (15 - bitIndex)) & 1) {
-    
-                    // Calculate pixel coordinates
-                    int pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
-                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
 
-                    //now kick it
-                    while(pixelX < 0) {
-                        virtualColumn += 1;
-                        pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
-                        Serial.println("We are seeing if we can kick right...");
-                    }   
-                    //at this point we have to check every piece one more time now that its rotated and kicked.              
-                    
-                    //Serial.printf("pixelX %d\n", pixelX);
-                }
-            }
+        //now kick it
+        while(pixelX < 0) {
+            virtualColumn += 1;
+            pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
+            Serial.println("We are seeing if we can kick right...");
+        }   
+   }, nextBitmask);
+
+   //at this point we have to check every piece one more time now that its rotated and kicked. 
+    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+        //save off the _column
+        uint32_t virtualColumn = _column;
+
+        //now just check for interference
+        if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
+            Serial.println("Something interfers after kicking left...");
+            canKick = false; //bail out we are overlapping another piece
         }
+    }, nextBitmask);
 
-        Serial.println("Now check if anything interfers after kicking right...");
-        //second loop through see if the rotated and kicked piece interferes with another piece
-        for (int r = 0; r < _boundingBoxSize; r++) {
-            for (int c = 0; c < _boundingBoxSize; c++) {
-                
-                // Calculate which bit we are checking (0 to 15)
-                // 4 bits per row r * 4 + what column we are on
-                int bitIndex = (r * 4) + c;
-                
-                // Check if the bit at this position is a 1
-                if ((nextBitmask >> (15 - bitIndex)) & 1) {
-    
-                    // Calculate pixel coordinates
-                    int pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
-                    int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
-
-                    //now just check for interference
-                    if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
-                        Serial.println("Something interfers after kicking left...");
-                        return false; //bail out we are overlapping another piece
-                    }
-                }
-            }
-        }
-        //check every piece part and looks clean
-        Serial.println("Nothing interfers! after kicking left...");
-        return true;
-    }
-    return false; //we are not in play
+    return canKick;
 }
