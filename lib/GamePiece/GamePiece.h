@@ -10,8 +10,14 @@
 #ifndef GAMEPIECE_H
 #define GAMEPIECE_H
 
+//for unit testing
+//#include <cstdint>
+//#include <functional>
+
+//TODO: Move all this to main.cpp to start writing tests!
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ILI9341.h> // Hardware-specific library for ST7789
+
 #include <array>
 
 const int kCols = 10; // Must be a compile-time constant
