@@ -10,7 +10,6 @@
 #ifndef GAMEPIECE_H
 #define GAMEPIECE_H
 
-//#include "Arduino.h" // Gives access to standard Arduino functions JIC
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ILI9341.h> // Hardware-specific library for ST7789
 #include <array>
