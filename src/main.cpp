@@ -125,6 +125,8 @@ GamePiece activePiece = GamePiece(GamePiece::oBlock, ILI9341_YELLOW, kStartingCo
 GamePiece nextPiece = GamePiece(GamePiece::oBlock, ILI9341_YELLOW, kStartingColumn, kStartingRow, kStartingRotation);
 
 //Function templates
+void drawPiece(GamePiece piece);
+void erasePiece(GamePiece piece);
 void readInputs();
 void renderGraphics();
 void renderNextUp();
@@ -425,7 +427,9 @@ void readInputs() {
  
         if(activePiece.canRotateCCW(gameArea, kGameRowCount)) {
           //Serial.println("Rotate allowed!");
-          activePiece.rotateCCW(tft); //-90
+          erasePiece(activePiece);
+          activePiece.rotateCCW(); //-90
+          drawPiece(activePiece);
         }
       }
     }
@@ -457,7 +461,9 @@ void readInputs() {
         Serial.println(activePiece.getCurrentColumn());
 
         if(activePiece.canMoveLeft(gameArea, kGameRowCount)) {
-          activePiece.moveLeft(tft);
+          erasePiece(activePiece);
+          activePiece.moveLeft();
+          drawPiece(activePiece);
         }
         //reset the hold counter
         leftButtonHeldMillis = millis();
@@ -472,7 +478,9 @@ void readInputs() {
         Serial.print("LEFT Button is Held. Current column is: ");
         Serial.println(activePiece.getCurrentColumn());
         if(activePiece.canMoveLeft(gameArea, kGameRowCount)) {
-          activePiece.moveLeft(tft);      
+          erasePiece(activePiece);
+          activePiece.moveLeft(); 
+          drawPiece(activePiece);     
         }
         leftButtonHeldState = false;  //reset to get a new delay
       }
@@ -492,7 +500,9 @@ void readInputs() {
         Serial.println(activePiece.getCurrentRow());
                 
         if(activePiece.canMoveRight(gameArea, kGameRowCount)) {
-          activePiece.moveRight(tft);
+          erasePiece(activePiece);
+          activePiece.moveRight();
+          drawPiece(activePiece);
         }
         //reset the hold counter
         rightButtonHeldMillis = millis();
@@ -507,7 +517,9 @@ void readInputs() {
         Serial.print("RIGHT Button is Held. Current column is: ");
         Serial.println(activePiece.getCurrentColumn());
         if(activePiece.canMoveRight(gameArea, kGameRowCount)) {
-          activePiece.moveRight(tft);      
+          erasePiece(activePiece);
+          activePiece.moveRight();
+          drawPiece(activePiece);      
         }
         rightButtonHeldState = false; //reset to get a new delay
       }
@@ -541,7 +553,9 @@ void readInputs() {
         Serial.println(activePiece.inplay());
 
         while(activePiece.canMoveDown(gameArea, kGameRowCount)) {
-          activePiece.moveDown(tft);
+          erasePiece(activePiece);
+          activePiece.moveDown();
+          drawPiece(activePiece);
         }
         //kill this piece, and place it in the gameArea array
         activePiece.setInplay(false, gameArea, kGameRowCount);
@@ -620,7 +634,8 @@ void renderGraphics() {
   }
   else {
     //Draw the active piece, and other game elements
-    activePiece.draw(tft);
+    //TODO: do I need this here anymore? 
+    drawPiece(activePiece);
       //draw rectangle of game are for 16x16 block
     tft.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_GREEN);
   }
@@ -641,6 +656,33 @@ void renderGraphics() {
   }
 }
 
+void drawPiece(GamePiece piece) {
+  int boarderSize = BLOCKSIZE-DRAWSIZE;
+
+  piece.forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+      // Draw the block
+      tft.fillRect(pixelX+boarderSize, pixelY+boarderSize, 
+          DRAWSIZE, DRAWSIZE, piece.getColor());
+  });
+}
+
+void erasePiece(GamePiece piece) {
+  //save colors  
+  int orginalColor = piece.getColor();
+  int orginalBoarder = piece.getBoarderColor();
+  
+  //set to black 
+  piece.setColor(ILI9341_BLACK);
+  piece.setBoarderColor(ILI9341_BLACK);
+  
+  drawPiece(piece); //delete piece by drawing black
+  
+  //restore origonal colors
+  piece.setColor(orginalColor);
+  piece.setBoarderColor(orginalBoarder);
+}
+
+
 void renderNextUp() {
   tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
   tft.setTextSize(2);
@@ -650,7 +692,7 @@ void renderNextUp() {
   //for performance reasons I don't want this rendered 30/second!
   tft.fillRect(165, 48, 90, 48, ILI9341_BLACK);
   //Draw next up
-  nextPiece.draw(tft);
+  drawPiece(nextPiece);
 }
 
 void renderScore() {
@@ -689,7 +731,6 @@ void renderTotalRows() {
 
 void renderSetteledRow(int32_t row) {
   // Calculate dimensions
-  //int rows = (sizeof(gameArea) / sizeof(gameArea[0]));
   int32_t cols = (sizeof(gameArea[0]) / sizeof(gameArea[0][0]));
 
   //redraw all the settled blocks. We need this when we clear full lines
@@ -726,7 +767,10 @@ void getNextPiece() {
 
         //nextPiece = GamePiece(pieces[randomPiece].gp, pieces[randomPiece].color, 11, 3, 0);
         nextPiece = pieces[randomPiece];
-        nextPiece.updateLocation(tft, 11, 3); //show piece in the gutter to the right
+
+        erasePiece(nextPiece);
+        nextPiece.updateLocation(11, 3); //show piece in the gutter to the right
+        drawPiece(nextPiece);
 
         Serial.print("Current piece: ");
         Serial.println(nextRandomPiece);
@@ -849,7 +893,9 @@ void updateGameLogic() {
         }
       }
       else if (activePiece.canMoveDown(gameArea, kGameRowCount)) {
-        activePiece.updateLocation(tft, activePiece.getCurrentColumn(), activePiece.getCurrentRow() + 1);
+        erasePiece(activePiece);
+        activePiece.updateLocation(activePiece.getCurrentColumn(), activePiece.getCurrentRow() + 1);
+        drawPiece(activePiece);
         frameCount = 0; // Reset counter
         checkFullRow();
       }

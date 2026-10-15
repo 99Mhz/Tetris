@@ -47,7 +47,7 @@ PieceData GamePiece::lBlock = {
         0x4460,  // State 0: 0100 0100 0110 0000 
         0x2E00,  // State 1: 0010 1110 0000 0000
         0xC440,  // State 2: 1100 0100 0100 0000 
-        0xE800   // State 3: 1110 1000 0000 0000
+        0x0E80   // State 3: 1110 1000 0000 0000  0000 1110 1000 0000
     },
 };
 
@@ -114,18 +114,6 @@ void GamePiece::forEachActiveBlock(std::function<void(int r, int c, int pixelX, 
     }
 }
 
-void GamePiece::draw(Adafruit_ILI9341 &gfxContext) {
-
-    int boarderSize = BLOCKSIZE-DRAWSIZE;
-
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-        // Draw the block
-        gfxContext.fillRect(pixelX+boarderSize, pixelY+boarderSize, 
-            DRAWSIZE, DRAWSIZE, _color);
-    });
-
-}
-
 bool GamePiece::canMoveLeft(uint16_t gameArea[][kCols], int rows) {
     if (!_inPlay) return false;
 
@@ -133,14 +121,14 @@ bool GamePiece::canMoveLeft(uint16_t gameArea[][kCols], int rows) {
 
     //TODO: check if we hit another piece! bug
     forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-        Serial.printf("pixelX %d\n", pixelX);
+//        Serial.printf("pixelX %d\n", pixelX);
 
         if(pixelX <= 0) {
-            Serial.println("Hit left side of the wall");
+//            Serial.println("Hit left side of the wall");
             canMove = false;
         }              
         else if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)] > 0) {
-            Serial.println("Hit Another Piece going left");
+//            Serial.println("Hit Another Piece going left");
             canMove = false;
         }
     });
@@ -155,11 +143,11 @@ bool GamePiece::canMoveRight(uint16_t gameArea[][kCols], int rows) {
 
     forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
         if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
-            Serial.println("Hit Another Piece going right");
+//            Serial.println("Hit Another Piece going right");
             canMove = false;
         }
         else if(pixelX >= 144) {
-            Serial.println("Hit right side of the wall");
+//            Serial.println("Hit right side of the wall");
             canMove = false;
         }
     });
@@ -174,11 +162,11 @@ bool GamePiece::canMoveDown(uint16_t gameArea[][kCols], int rows) {
 
     forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
         if(gameArea[(pixelY/BLOCKSIZE) + 1][(pixelX/BLOCKSIZE)] > 0) {
-            Serial.println("Hit Another Piece going down");
+//            Serial.println("Hit Another Piece going down");
             canMove = false;
         }
         else if (pixelY >= 304) {
-            Serial.println("Hit Bottom");
+//            Serial.println("Hit Bottom");
             canMove = false;
         }
     });
@@ -202,17 +190,17 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
         //since we virtually rotated a part of the piece can be out of the game area
         //But this one is whitin the game area
         if((pixelX/BLOCKSIZE) <= 9 && (pixelX/BLOCKSIZE) >= 0) {
-            Serial.println("Rotate: Within game area");
+//            Serial.println("Rotate: Within game area");
             //since we are within the gamearea check the piece part with something in that located in the gamearea
             if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
-                Serial.println("ROTATE: Will hit Another Piece at:");
-                Serial.printf("X: %d Y: %d Color: %d \n", (pixelX/BLOCKSIZE), (pixelY/BLOCKSIZE), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)]);
+//                Serial.println("ROTATE: Will hit Another Piece at:");
+//                Serial.printf("X: %d Y: %d Color: %d \n", (pixelX/BLOCKSIZE), (pixelY/BLOCKSIZE), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)]);
                 canRotate = false;
             }
         }
         //this piece part is right of the gamearea. Allow rotate only if it cn kick left
         else if((pixelX/BLOCKSIZE) > 9) {
-            Serial.println("Rotate: Outside game area");
+//            Serial.println("Rotate: Outside game area");
             bKickLeftNeeded = true;
             if(canKickLeft(gameArea)) {
                 bCanKickLeft = true;
@@ -220,14 +208,14 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
         }
         //this piece part if left of the gamearea. Allow rotate only if it cn kick right
         else if((pixelX/BLOCKSIZE) < 0) {
-            Serial.println("Rotate: Outside game area");
+//            Serial.println("Rotate: Outside game area");
             bKickRightNeeded = true;
             if(canKickRight(gameArea)) {
                 bCanKickRight = true;
             }
         }
         else if (pixelY >= 304) {
-            Serial.println("Hit Bottom");
+//            Serial.println("Hit Bottom");
             canRotate = false;
         }
     }, nextBitmask);
@@ -251,11 +239,11 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
     }
 }
 
-void GamePiece::rotateCCW(Adafruit_ILI9341 &gfxContext) {
+void GamePiece::rotateCCW() {
     if(!_inPlay) { return; }
 
     //erase the piece at the old position
-    erase(gfxContext); 
+    //erase(gfxContext); 
     
     //figure out the new rotation state
     //_rotationState = (_rotationState + 3) % 4; //for CW
@@ -265,56 +253,31 @@ void GamePiece::rotateCCW(Adafruit_ILI9341 &gfxContext) {
     kickLeft(); //if needed
 
     //now redraw
-    draw(gfxContext);
+    //draw(gfxContext);
 }
 
-void GamePiece::moveRight(Adafruit_ILI9341 &gfxContext) {
+void GamePiece::moveRight() {
     if(_inPlay) {
-        updateLocation(gfxContext, _column + 1, _row);
+        updateLocation(_column + 1, _row);
     }
 }
 
-void GamePiece::moveLeft(Adafruit_ILI9341 &gfxContext) {
+void GamePiece::moveLeft() {
     if(_inPlay) {
-        updateLocation(gfxContext, _column - 1, _row);
+        updateLocation(_column - 1, _row);
     }
 }
 
-void GamePiece::moveDown(Adafruit_ILI9341 &gfxContext) {
+void GamePiece::moveDown() {
     if(_inPlay) {
-        updateLocation(gfxContext, _column, _row + 1);
+        updateLocation(_column, _row + 1);
     }
 }
 
-void GamePiece::erase(Adafruit_ILI9341 &gfxContext) {
-
-  //save colors  
-  int orginalColor = _color;
-  int orginalBoarder = _borderColor;
-
-  //set to black 
-  _color = ILI9341_BLACK;
-  _borderColor = ILI9341_BLACK;
-
-  draw(gfxContext); //delete piece by drawing black
-
-  //restore origonal colors
-  _color = orginalColor;
-  _borderColor = orginalBoarder;
-}
-
-void GamePiece::updateLocation(Adafruit_ILI9341 &gfxContext, int column, int row) {
-  
-    //erase the piece at the old position
-    erase(gfxContext); 
-    
+void GamePiece::updateLocation(int column, int row) {
     //update new position
     _column = column;
     _row = row;
-
-    //draw at new position
-    draw(gfxContext); 
-
 }
 
 void GamePiece::setInplay(bool inplay, uint16_t gameArea[][kCols], int rows) {
@@ -380,7 +343,7 @@ bool GamePiece::canKickLeft(uint16_t gameArea[][kCols]) {
         while(pixelX > 144) {
             virtualColumn -= 1;
             pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
-            Serial.println("We are seeing if we can kick left...");
+//            Serial.println("We are seeing if we can kick left...");
         }   
     }, nextBitmask);
 
@@ -391,13 +354,13 @@ bool GamePiece::canKickLeft(uint16_t gameArea[][kCols]) {
 
         //now just check for interference
         if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
-            Serial.println("Something interfers after kicking left...");
+//            Serial.println("Something interfers after kicking left...");
             canKick = false; //bail out we are overlapping another piece
         }
     }, nextBitmask);
 
     //check every piece part and looks clean
-    Serial.println("Nothing interfers! after kicking left...");
+//    Serial.println("Nothing interfers! after kicking left...");
     return canKick;
 }
 
@@ -417,7 +380,7 @@ bool GamePiece::canKickRight(uint16_t gameArea[][kCols]) {
         while(pixelX < 0) {
             virtualColumn += 1;
             pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
-            Serial.println("We are seeing if we can kick right...");
+//            Serial.println("We are seeing if we can kick right...");
         }   
    }, nextBitmask);
 
@@ -428,10 +391,30 @@ bool GamePiece::canKickRight(uint16_t gameArea[][kCols]) {
 
         //now just check for interference
         if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
-            Serial.println("Something interfers after kicking left...");
+//            Serial.println("Something interfers after kicking left...");
             canKick = false; //bail out we are overlapping another piece
         }
     }, nextBitmask);
 
     return canKick;
+}
+
+int GamePiece::getColor() {
+    return _color;
+}
+
+void GamePiece::setColor(int color) {
+    _color = color;
+}
+
+int GamePiece::getBoarderColor() {
+    return _borderColor;
+}
+
+void GamePiece::setBoarderColor(int color) {
+    _borderColor = color;
+}
+
+void GamePiece::setColumn(int column) {
+    _column = column;
 }

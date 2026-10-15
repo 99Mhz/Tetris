@@ -11,12 +11,13 @@
 #define GAMEPIECE_H
 
 //for unit testing
-//#include <cstdint>
-//#include <functional>
+#include <cstdint>
+#include <functional>
 
 //TODO: Move all this to main.cpp to start writing tests!
-#include <Adafruit_GFX.h>    // Core graphics library
-#include <Adafruit_ILI9341.h> // Hardware-specific library for ST7789
+//#include <Adafruit_GFX.h>    // Core graphics library
+//#include <Adafruit_ILI9341.h> // Hardware-specific library for ST7789
+//#include <Arduino.h>
 
 #include <array>
 
@@ -38,7 +39,7 @@ class GamePiece {
   private:
     bool _inPlay;
     uint16_t _color;
-    uint16_t _borderColor = ILI9341_DARKGREY;
+    uint16_t _borderColor = 0x7BEF; //DARK_GREY
     uint16_t _boundingBoxSize = 4; //all pieces live in a 4x4 bounding box
     uint16_t _rotationState;
     uint32_t _column;
@@ -65,21 +66,15 @@ class GamePiece {
 
     void forEachActiveBlock(std::function<void(int r, int c, int pixelX, int pixelY)> action, uint16_t bitmask = 0);
 
-    void draw(Adafruit_ILI9341 &gfxContext);
+    void rotateCCW();
 
-    void rotateCCW(Adafruit_ILI9341 &gfxContext);
+    void updateLocation(int column, int row);
 
-    void rotateCW(Adafruit_ILI9341 &gfxContext);
+    void moveRight();
 
-    void erase(Adafruit_ILI9341 &gfxContext);
+    void moveLeft();
 
-    void updateLocation(Adafruit_ILI9341 &gfxContext, int column, int row);
-
-    void moveRight(Adafruit_ILI9341 &gfxContext);
-
-    void moveLeft(Adafruit_ILI9341 &gfxContext);
-
-    void moveDown(Adafruit_ILI9341 &gfxContext);
+    void moveDown();
 
     int getCurrentRow();
 
@@ -105,6 +100,15 @@ class GamePiece {
 
     bool inplay();
 
+    int getColor();
+
+    int getBoarderColor();
+
+    void setColor(int color);
+
+    void setBoarderColor(int color);
+
+    void setColumn(int column);
 };
 
 #endif
