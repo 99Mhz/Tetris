@@ -192,17 +192,13 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
         //since we virtually rotated a part of the piece can be out of the game area
         //But this one is whitin the game area
         if((pixelX/BLOCKSIZE) <= 9 && (pixelX/BLOCKSIZE) >= 0) {
-//            Serial.println("Rotate: Within game area");
             //since we are within the gamearea check the piece part with something in that located in the gamearea
             if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
-//                Serial.println("ROTATE: Will hit Another Piece at:");
-//                Serial.printf("X: %d Y: %d Color: %d \n", (pixelX/BLOCKSIZE), (pixelY/BLOCKSIZE), gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)]);
                 canRotate = false;
             }
         }
         //this piece part is right of the gamearea. Allow rotate only if it cn kick left
         else if((pixelX/BLOCKSIZE) > 9) {
-//            Serial.println("Rotate: Outside game area");
             bKickLeftNeeded = true;
             if(canKickLeft(gameArea)) {
                 bCanKickLeft = true;
@@ -210,33 +206,36 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
         }
         //this piece part if left of the gamearea. Allow rotate only if it cn kick right
         else if((pixelX/BLOCKSIZE) < 0) {
-//            Serial.println("Rotate: Outside game area");
             bKickRightNeeded = true;
             if(canKickRight(gameArea)) {
                 bCanKickRight = true;
             }
         }
         else if (pixelY >= 304) {
-//            Serial.println("Hit Bottom");
             canRotate = false;
         }
     }, nextBitmask);
 
+    //TODO: Write unit tests for all cases! i'm still not sure everyting is coverep properly
+
     //now that every piece part has been checked for interference with other pieces
     if(!bKickLeftNeeded && !bKickRightNeeded) {
         //we didn't need to kick left or right so all is good
-        return true;
+        //return true;      //This was the BUG allowing rotate into another piece! 
+        return canRotate;
     }
-    else if (bKickLeftNeeded && bCanKickLeft) {
-        //we need to kick left but we can so all is still good
-        return true;
+    else if (bKickLeftNeeded && !bCanKickLeft) {
+        //we need to kick left but we cant so return false
+        return false;
+    
     }
-    else if (bKickRightNeeded && bCanKickRight) {
-        //we need to kick right but can so all is still good
-        return true;
+    else if (bKickRightNeeded && !bCanKickRight) {
+        //we need to kick right but cant so return false
+        return false;
+        //return canRotate;
     }
     else {
-        //kick is needed in some direction but we can't without running into another piece. 
+        //fall back to:
         return canRotate;
     }
 }

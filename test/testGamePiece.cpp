@@ -98,10 +98,8 @@ void test_rotate_t_middle_with_one_to_the_left(void) {
     uint16_t testGameArea[20][10] = {0};
 
     // Place X blocker piece tile on the board
-    testGameArea[4][3] = 1; // 1 represents a settled block color/ID
     testGameArea[5][3] = 1; // 1 represents a settled block color/ID
-    testGameArea[6][3] = 1; // 1 represents a settled block color/ID
-
+ 
     // Set up a T with middle tile just to the right. A rotate will push top leg into the blocker
     int column = 3;
     int row = 4;
@@ -111,6 +109,7 @@ void test_rotate_t_middle_with_one_to_the_left(void) {
 
     bool rotateAllowed = piece.canRotateCCW(testGameArea, kGameRowCount);
 
+    /* 
     std::string msg = "";
     piece.forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
         msg = "Color at [" 
@@ -121,6 +120,7 @@ void test_rotate_t_middle_with_one_to_the_left(void) {
         + std::to_string(testGameArea[pixelY/16][pixelX/16]);
         TEST_MESSAGE(msg.c_str());
     });
+    */
 
     TEST_ASSERT_FALSE(rotateAllowed);
 }
