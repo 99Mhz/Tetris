@@ -20,11 +20,20 @@ void tearDown(void) {
     // Optional: Clean up if needed
 }
 
-//test case for kickRight
+//test case for kickRight no blockers
 void test_kick_right_adjusts_column_when_out_of_bounds(void) {
+    const uint8_t kGameRowCount = 20;
 
-    // Set up a state where the piece is artificially clipped past the left wall (pixelX < 0)
-    GamePiece piece = GamePiece(GamePiece::lBlock, 0xFFE0, -1, 3, 1);
+    // Setup a gameArea 20 rows 10 columns
+    uint16_t testGameArea[20][10] = {0};
+
+
+    // Set up a T with middle tile just to the right. A rotate will push top leg into the blocker
+    int column = -1;
+    int row = 3;
+    int rotation = 1;   //will get next bitmask of 1 Middle leg of the T should be in 5,3
+    int color = 0xFFE0;
+    GamePiece piece = GamePiece(GamePiece::lBlock, color, column, row, rotation); //From rotation 3 to 0 pushes the top tile into X
 
     // Run the function we are testing
     piece.kickRight();
@@ -43,9 +52,70 @@ void test_kick_right_adjusts_column_when_out_of_bounds(void) {
     // Assert that the piece correctly kicked itself back into bounds
     //TEST_ASSERT_GREATER_THAN_INT(-1, piece.getCurrentColumn());
     TEST_ASSERT_FALSE(anyBlockOutOfBounds);
+    TEST_ASSERT_EQUAL_INT32(0, piece.getCurrentColumn());
 }
 
-//test case for kickRight
+//Rotate L on left wall
+void test_rotate_l_off_left_wall(void) {
+    const uint8_t kGameRowCount = 20;
+
+    // Setup a gameArea 20 rows 10 columns
+    uint16_t testGameArea[20][10] = {0};
+
+
+    // Set up a T with middle tile just to the right. A rotate will push top leg into the blocker
+    int column = -1;
+    int row = 6;
+    int rotation = 0;   //will get next bitmask of by canRotate()
+    int color = 0xFFE0;
+    GamePiece piece = GamePiece(GamePiece::lBlock, color, column, row, rotation); //From rotation 3 to 0 pushes the top tile into X
+
+    // Run the function we are testing
+    //canRotateCCW is moving the piece to the other side of the board
+    if(piece.canRotateCCW(testGameArea, kGameRowCount)) {
+        piece.rotateCCW();
+        piece.kickLeft();
+        piece.kickRight();
+    }
+
+    //messages in test run with -v flag
+    //std::string msg = "Current Column after: " + std::to_string(piece.getCurrentColumn());
+    //TEST_MESSAGE(msg.c_str()); // This safely outputs to the test window!
+
+    TEST_ASSERT_EQUAL_INT32(0, piece.getCurrentColumn());
+}
+
+//Rotate L on right wall
+void test_rotate_l_off_right_wall(void) {
+    const uint8_t kGameRowCount = 20;
+
+    // Setup a gameArea 20 rows 10 columns
+    uint16_t testGameArea[20][10] = {0};
+
+
+    // Set up a T with middle tile just to the right. A rotate will push top leg into the blocker
+    int column = 8;
+    int row = 1;
+    int rotation = 2;   //will get next bitmask of 1 Middle leg of the T should be in 5,3
+    int color = 0xFFE0;
+    GamePiece piece = GamePiece(GamePiece::lBlock, color, column, row, rotation); //From rotation 3 to 0 pushes the top tile into X
+
+    // Run the function we are testing
+    //canRotateCCW is moving the piece to the other side of the board
+    if(piece.canRotateCCW(testGameArea, kGameRowCount)) {
+        piece.rotateCCW();
+        piece.kickLeft();
+        piece.kickRight();
+    }
+
+    //messages in test run with -v flag
+    //std::string msg = "Current Column after: " + std::to_string(piece.getCurrentColumn());
+    //TEST_MESSAGE(msg.c_str()); // This safely outputs to the test window!
+
+    TEST_ASSERT_EQUAL_INT32(7, piece.getCurrentColumn()); //7 because a kick was needed
+}
+
+//test case for kickRight no blocker
 void test_kick_left_adjusts_column_when_out_of_bounds(void) {
 
     // Set up a state where the piece is artificially clipped past the right wall (pixelX < 0)
@@ -63,7 +133,7 @@ void test_kick_left_adjusts_column_when_out_of_bounds(void) {
     TEST_ASSERT_FALSE(anyBlockOutOfBounds);
 }
 
-//test case for kickRight
+//test case for rotate with a blocker
 void test_rotate_t_middle_with_one_to_the_left(void) {
 
     /*
@@ -153,19 +223,194 @@ void test_move_t_to_the_left_with_blocker(void) {
 
     bool moveAllowed = piece.canMoveLeft(testGameArea, kGameRowCount);
 
+    TEST_ASSERT_FALSE(moveAllowed);
+}
+
+//test case for rotate into another piece
+void test_rotate_I_with_blocker_to_left(void) {
+
+    /*
+    I rotate without kick into X is blocking
+     ------------------
+    |   |   |   | I  |
+    ------------------
+    | X |   |   | I  |
+    ------------------
+    |   |   |   | I  |
+    ------------------ 
+    |   |   |   | I  |
+    ------------------
+    */
+
+    const uint8_t kGameRowCount = 20;
+
+    // Setup a gameArea 20 rows 10 columns
+    uint16_t testGameArea[20][10] = {0};
+
+    // Place X blocking piece on the board
+    testGameArea[8][4] = 1; // 1 represents a settled block color/ID
+
+    int column = 4;
+    int row = 7;
+    int rotation = 1;  
+    int color = 0xFFE0;
+    GamePiece piece = GamePiece(GamePiece::iBlock, color, column, row, rotation); //From rotation 3 to 0 pushes the top tile into X
+
+    bool moveAllowed = piece.canRotateCCW(testGameArea, kGameRowCount);
 
     TEST_ASSERT_FALSE(moveAllowed);
 }
 
+//test case for rotate needing a kickleft into another piece
+void test_roatate_with_kick_I_to_the_left_with_blocker(void) {
+
+    /*
+    I rotate/kicks left right into X is blocking
+    TODO: Active bug allowing this!
+    ------------------
+    |   |   |   | I ||
+    ------------------
+    | X |   |   | I ||
+    ------------------
+    |   |   |   | I ||
+    ------------------ 
+    |   |   |   | I ||
+    ------------------
+    */
+
+    const uint8_t kGameRowCount = 20;
+
+    // Setup a gameArea 20 rows 10 columns
+    uint16_t testGameArea[20][10] = {0};
+
+    // Place X blocking piece on the board
+    testGameArea[8][6] = 1; // 1 represents a settled block color/ID
+
+    int column = 7;
+    int row = 7;
+    int rotation = 1;   //will get next bitmask of 2 I on its side right into [8][6]
+    int color = 0xFFE0;
+    GamePiece piece = GamePiece(GamePiece::iBlock, color, column, row, rotation); //From rotation 3 to 0 pushes the top tile into X
+
+    bool moveAllowed = piece.canRotateCCW(testGameArea, kGameRowCount);
+
+    TEST_ASSERT_FALSE(moveAllowed);
+}
+
+//test case for canKick without calling rotate. Needing a kickleft into another piece
+void test_can_kick_I_to_the_left_with_blocker(void) {
+
+    /*
+    I rotate/kicks left right into X is blocking
+    TODO: Active bug allowing this!
+    ------------------
+    |   |   |   | I ||
+    ------------------
+    | X |   |   | I ||
+    ------------------
+    |   |   |   | I ||
+    ------------------ 
+    |   |   |   | I ||
+    ------------------
+    */
+
+    const uint8_t kGameRowCount = 20;
+
+    // Setup a gameArea 20 rows 10 columns
+    uint16_t testGameArea[20][10] = {0};
+
+    // Place X blocking piece on the board
+    testGameArea[8][6] = 1; // 1 represents a settled block color/ID
+
+    int column = 7;
+    int row = 7;    
+    int rotation = 0;   //assume we are already rotated. just testing kick
+    int color = 0xFFE0;
+    GamePiece piece = GamePiece(GamePiece::iBlock, color, column, row, rotation); //From rotation 3 to 0 pushes the top tile into X
+
+    bool moveAllowed = piece.canKickLeft(testGameArea);
+
+    //piece.rotateCCW();  //just testing locations after rotate
+    piece.kickLeft();
+/*
+    std::string msg = "";
+    piece.forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+        msg = "Color at [" 
+        + std::to_string(pixelY/16) 
+        + "][" 
+        + std::to_string(pixelX/16) 
+        + "]: "
+        + std::to_string(testGameArea[pixelY/16][pixelX/16]);
+        TEST_MESSAGE(msg.c_str());
+    });
+*/
+    TEST_ASSERT_FALSE(moveAllowed);
+}
+
+//test case for canKick without calling rotate. Needing a kickright into another piece
+void test_can_kick_I_to_the_right_with_blocker(void) {
+
+    /*
+    I rotate/kicks left right into X is blocking
+    TODO: Active bug allowing this!
+    ------------------
+    || I |   |   |   ||
+    ------------------
+    || I |   |   | X ||
+    ------------------
+    || I |   |   |   ||
+    ------------------ 
+    || I |   |   |   ||
+    ------------------
+    */
+
+    const uint8_t kGameRowCount = 20;
+
+    // Setup a gameArea 20 rows 10 columns
+    uint16_t testGameArea[20][10] = {0};
+
+    // Place X blocking piece on the board
+    testGameArea[5][3] = 1; // 1 represents a settled block color/ID
+
+    int column = -2;
+    int row = 4;        //assume we are already rotated. just testing kick
+    int rotation = 2;   //will get next bitmask of 2 I on its side right into [8][6]
+    int color = 0xFFE0;
+    GamePiece piece = GamePiece(GamePiece::iBlock, color, column, row, rotation); //From rotation 3 to 0 pushes the top tile into X
+
+    bool moveAllowed = piece.canKickRight(testGameArea);
+/*
+    //piece.rotateCCW();  //just testing locations after rotate
+    piece.kickLeft();
+
+    std::string msg = "";
+    piece.forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+        msg = "Color at [" 
+        + std::to_string(pixelY/16) 
+        + "][" 
+        + std::to_string(pixelX/16) 
+        + "]: "
+        + std::to_string(testGameArea[pixelY/16][pixelX/16]);
+        TEST_MESSAGE(msg.c_str());
+    });
+*/
+    TEST_ASSERT_FALSE(moveAllowed);
+}
 
 // Main test runner entry point
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     
     RUN_TEST(test_kick_right_adjusts_column_when_out_of_bounds);
+    RUN_TEST(test_rotate_l_off_left_wall);
+    RUN_TEST(test_rotate_l_off_right_wall);
     RUN_TEST(test_kick_left_adjusts_column_when_out_of_bounds);
     RUN_TEST(test_rotate_t_middle_with_one_to_the_left);
     RUN_TEST(test_move_t_to_the_left_with_blocker);
+    RUN_TEST(test_rotate_I_with_blocker_to_left);
+    RUN_TEST(test_roatate_with_kick_I_to_the_left_with_blocker);
+    RUN_TEST(test_can_kick_I_to_the_left_with_blocker);
+    RUN_TEST(test_can_kick_I_to_the_right_with_blocker);
 
     return UNITY_END();
 }

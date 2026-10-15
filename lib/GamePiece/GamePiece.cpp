@@ -200,21 +200,27 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
         //this piece part is right of the gamearea. Allow rotate only if it cn kick left
         else if((pixelX/BLOCKSIZE) > 9) {
             bKickLeftNeeded = true;
-            if(canKickLeft(gameArea)) {
-                bCanKickLeft = true;
-            }
         }
         //this piece part if left of the gamearea. Allow rotate only if it cn kick right
         else if((pixelX/BLOCKSIZE) < 0) {
             bKickRightNeeded = true;
-            if(canKickRight(gameArea)) {
-                bCanKickRight = true;
-            }
-        }
+         }
         else if (pixelY >= 304) {
             canRotate = false;
         }
     }, nextBitmask);
+
+    uint16_t saveRotationState = _rotationState;
+    //uint16_t saveColumn = _column;
+
+    rotateCCW(); //WTF why??
+
+    //TODO: canKickLeft gets the next rotation and thats not what we want!
+    bCanKickLeft = canKickLeft(gameArea);
+    bCanKickRight = canKickRight(gameArea);
+
+    _rotationState = saveRotationState; //restore after test
+    //_column = saveColumn;
 
     //TODO: Write unit tests for all cases! i'm still not sure everyting is coverep properly
 
@@ -250,8 +256,9 @@ void GamePiece::rotateCCW() {
     //_rotationState = (_rotationState + 3) % 4; //for CW
     _rotationState = (_rotationState + 1) % 4;
 
-    kickRight(); //if needed
-    kickLeft(); //if needed
+    //TODO: we probably don't want these here? 
+//   kickRight(); //if needed
+//   kickLeft(); //if needed
 
     //now redraw
     //draw(gfxContext);
@@ -328,74 +335,58 @@ void GamePiece::kickLeft() {
     });
 }
 
+/*  Method tests if a kick left can happen. 
+    The piece needs to be rotated into position already. we just test kick here
+*/
 bool GamePiece::canKickLeft(uint16_t gameArea[][kCols]) {
     if(!_inPlay) { return false; }
 
-    bool canKick = true;
+    bool canKick = true;    //assume we can until we can't
 
-    // Get the 16-bit integer for the next desired rotation state
-    uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
+    //save off the _column we don't want to change anything just test
+    uint32_t saveColumn = _column;
 
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-        //save off the _column
-        uint32_t virtualColumn = _column;
-
-        //now kick it
-        while(pixelX > 144) {
-            virtualColumn -= 1;
-            pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
-//            Serial.println("We are seeing if we can kick left...");
-        }   
-    }, nextBitmask);
+    kickLeft();
 
     //at this point we have to check every piece one more time now that its rotated and kicked.              
     forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-        //save off the _column
-        uint32_t virtualColumn = _column;
 
         //now just check for interference
         if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
-//            Serial.println("Something interfers after kicking left...");
             canKick = false; //bail out we are overlapping another piece
         }
-    }, nextBitmask);
+    });
 
-    //check every piece part and looks clean
-//    Serial.println("Nothing interfers! after kicking left...");
+    //restore the kick
+    _column = saveColumn;
+
     return canKick;
 }
 
+/*  Method tests if a kick right can happen. 
+    The piece needs to be rotated into position already. we just test kick here
+*/
 bool GamePiece::canKickRight(uint16_t gameArea[][kCols]) {
     if(!_inPlay) { return false; }
 
-    bool canKick = true;
+    bool canKick = true;    //assume we can until we can't
 
-    // Get the 16-bit integer for the next desired rotation state
-    uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
+    //save off the _column we don't want to change anything just test
+    uint32_t saveColumn = _column;
 
+    kickRight();
+
+    //at this point we have to check every piece one more time now that its rotated and kicked.              
     forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-        //save off the _column
-        uint32_t virtualColumn = _column;
-
-        //now kick it
-        while(pixelX < 0) {
-            virtualColumn += 1;
-            pixelX = (c * BLOCKSIZE) + (virtualColumn * BLOCKSIZE);
-//            Serial.println("We are seeing if we can kick right...");
-        }   
-   }, nextBitmask);
-
-   //at this point we have to check every piece one more time now that its rotated and kicked. 
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-        //save off the _column
-        uint32_t virtualColumn = _column;
 
         //now just check for interference
         if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
-//            Serial.println("Something interfers after kicking left...");
             canKick = false; //bail out we are overlapping another piece
         }
-    }, nextBitmask);
+    });
+
+    //restore the kick
+    _column = saveColumn;
 
     return canKick;
 }

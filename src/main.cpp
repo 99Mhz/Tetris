@@ -428,7 +428,9 @@ void readInputs() {
         if(activePiece.canRotateCCW(gameArea, kGameRowCount)) {
           //Serial.println("Rotate allowed!");
           erasePiece(activePiece);
-          activePiece.rotateCCW(); //-90
+          activePiece.rotateCCW();  //-90
+          activePiece.kickLeft();   //if needed
+          activePiece.kickRight();  //if needed
           drawPiece(activePiece);
         }
       }
