@@ -53,10 +53,11 @@ PieceData GamePiece::lBlock = {
 
 PieceData GamePiece::tBlock = {
     {
-        0x4E00,  // State 0: 0100 1110 0000 0000
-        0x4640,  // State 1: 0100 0110 0100 0000
-        0x0E40,  // State 2: 0000 1110 0100 0000
-        0x4C40   // State 3: 0100 1100 0100 0000
+        //Reordered because it was rotating CW
+        0x4E00,     // State 0: 0100 1110 0000 0000
+        0x4C40,     // State 3: 0100 1100 0100 0000
+        0x0E40,     // State 2: 0000 1110 0100 0000
+        0x4640      // State 1: 0100 0110 0100 0000
     },
 };
 
@@ -89,6 +90,7 @@ GamePiece::GamePiece(const PieceData& shape, int color, int column, int row, int
 }
 
 void GamePiece::forEachActiveBlock(std::function<void(int r, int c, int pixelX, int pixelY) > action, uint16_t bitmask) {
+    
     //no bitmask was passed
     uint16_t currentBitmask = (bitmask == 0) ? _shape.states[_rotationState] : bitmask;
     

@@ -109,6 +109,8 @@ class GamePiece {
     void setBoarderColor(int color);
 
     void setColumn(int column);
+
+    void setInplay(int column);
 };
 
 #endif
