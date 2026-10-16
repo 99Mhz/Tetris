@@ -661,9 +661,9 @@ void renderGraphics() {
 void drawPiece(GamePiece piece) {
   int boarderSize = BLOCKSIZE-DRAWSIZE;
 
-  piece.forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+  piece.forEachActiveBlock([&](int gridX, int gridY) {
       // Draw the block
-      tft.fillRect(pixelX+boarderSize, pixelY+boarderSize, 
+      tft.fillRect((gridX * BLOCKSIZE) + boarderSize, (gridY * BLOCKSIZE) + boarderSize, 
           DRAWSIZE, DRAWSIZE, piece.getColor());
   });
 }
@@ -807,11 +807,25 @@ void checkFullRow() {
   }
 
   totalRowsCleared += fullRows.size();
-  score += (fullRows.size() * 100) * level;
-  if(fullRows.size() >= 2) {
-    //Bonus
-    score += 50 * fullRows.size();
+  switch (fullRows.size())
+  {
+  case 1:
+    score += (fullRows.size() * 40) * level;
+    break;
+  case 2:
+    score += (fullRows.size() * 100) * level;
+    break;
+  case 3:
+    score += (fullRows.size() * 400) * level;
+    break;
+  case 4: //TETRIS!
+    score += (fullRows.size() * 1200) * level;
+    break;
+  default:  //More than 4?? this should be impossible
+    score += (fullRows.size() * 1200) * level;
+    break;
   }
+
   renderScore();
   renderLevel();
   renderTotalRows();
@@ -871,16 +885,26 @@ void updateGameLogic() {
       else if(totalRowsCleared < 30) { level = 3; }
       else if(totalRowsCleared < 40) { level = 4; }
       else if(totalRowsCleared < 50) { level = 5; }
-      else { level = 6; } //!!
+      else if(totalRowsCleared < 60) { level = 6; }
+      else if(totalRowsCleared < 70) { level = 7; }
+      else if(totalRowsCleared < 80) { level = 8; }
+      else if(totalRowsCleared < 90) { level = 9; }
+      else if(totalRowsCleared < 100) { level = 10; }
+      else { level = 11; } //!!
 
       //Calculate level speed
       //Could be a switch statement also, or better find a function!
       if(level == 1) { fallSpeed = 22; }
-      else if(level == 2) { fallSpeed = 18; }
-      else if(level == 3) { fallSpeed = 14; }
-      else if(level == 4) { fallSpeed = 10; }
-      else if(level == 5) { fallSpeed = 6; }
-      else { fallSpeed = 2; } //must be level 6!!
+      else if(level == 2) { fallSpeed = 20; }
+      else if(level == 3) { fallSpeed = 18; }
+      else if(level == 4) { fallSpeed = 16; }
+      else if(level == 5) { fallSpeed = 14; }
+      else if(level == 6) { fallSpeed = 12; }
+      else if(level == 7) { fallSpeed = 10; }
+      else if(level == 8) { fallSpeed = 8; }
+      else if(level == 9) { fallSpeed = 6; }
+      else if(level == 10) { fallSpeed = 4; }
+      else { fallSpeed = 2; } //must be level 11 nobodys getting past this!
       
       if(!activePiece.inplay()) {
         Serial.print("Inplay: ");

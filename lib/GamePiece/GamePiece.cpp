@@ -89,7 +89,7 @@ GamePiece::GamePiece(const PieceData& shape, int color, int column, int row, int
   _rotationState = rotationState;
 }
 
-void GamePiece::forEachActiveBlock(std::function<void(int r, int c, int pixelX, int pixelY) > action, uint16_t bitmask) {
+void GamePiece::forEachActiveBlock(std::function<void(int gridX, int gridY) > action, uint16_t bitmask) {
     
     //no bitmask was passed
     uint16_t currentBitmask = (bitmask == 0) ? _shape.states[_rotationState] : bitmask;
@@ -106,11 +106,10 @@ void GamePiece::forEachActiveBlock(std::function<void(int r, int c, int pixelX, 
             if ((currentBitmask >> (15 - bitIndex)) & 1) {
 
                 // Calculate pixel coordinates
-                int pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
-                int pixelY = (r * BLOCKSIZE) + (_row * BLOCKSIZE);
+                int gridX = c + _column;
+                int gridY = r + _row;
 
-                action(r, c, pixelX, pixelY);
-
+                action(gridX, gridY);
             }
         }
     }
@@ -122,15 +121,14 @@ bool GamePiece::canMoveLeft(uint16_t gameArea[][kCols], int rows) {
     bool canMove = true;
 
     //TODO: check if we hit another piece! bug
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-//        Serial.printf("pixelX %d\n", pixelX);
+    forEachActiveBlock([&](int gridX, int gridY) {
 
-        if(pixelX <= 0) {
-//            Serial.println("Hit left side of the wall");
+        if(gridX <= 0) {
+        //Hit left side of the wall
             canMove = false;
-        }              
-        else if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE - 1)] > 0) {
-//            Serial.println("Hit Another Piece going left");
+        }            
+        //was (pixelX/BLOCKSIZE - 1)   
+        else if(gameArea[gridY][gridX - 1] > 0) {
             canMove = false;
         }
     });
@@ -143,13 +141,13 @@ bool GamePiece::canMoveRight(uint16_t gameArea[][kCols], int rows) {
     
     bool canMove = true;
 
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-        if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE + 1)] > 0) {
-//            Serial.println("Hit Another Piece going right");
+    forEachActiveBlock([&](int gridX, int gridY) {
+        if(gameArea[gridY][gridX + 1] > 0) {
+        //Hit Another Piece going right"
             canMove = false;
         }
-        else if(pixelX >= 144) {
-//            Serial.println("Hit right side of the wall");
+        else if(gridX >= 9) {
+        //Hit right side of the wall
             canMove = false;
         }
     });
@@ -162,13 +160,13 @@ bool GamePiece::canMoveDown(uint16_t gameArea[][kCols], int rows) {
     
     bool canMove = true;
 
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-        if(gameArea[(pixelY/BLOCKSIZE) + 1][(pixelX/BLOCKSIZE)] > 0) {
-//            Serial.println("Hit Another Piece going down");
+    forEachActiveBlock([&](int gridX, int gridY) {
+        if(gameArea[gridY + 1][gridX] > 0) {
+        //Hit Another Piece going down
             canMove = false;
         }
-        else if (pixelY >= 304) {
-//            Serial.println("Hit Bottom");
+        else if (gridY >= 19) {
+        //Hit Bottom"
             canMove = false;
         }
     });
@@ -188,39 +186,36 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
     // Get the 16-bit integer for the next desired rotation state
     uint16_t nextBitmask = _shape.states[(_rotationState + 1) % 4];
 
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+    forEachActiveBlock([&](int gridX, int gridY) {
         //since we virtually rotated a part of the piece can be out of the game area
         //But this one is whitin the game area
-        if((pixelX/BLOCKSIZE) <= 9 && (pixelX/BLOCKSIZE) >= 0) {
+        if(gridX <= 9 && gridX >= 0) {
             //since we are within the gamearea check the piece part with something in that located in the gamearea
-            if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
+            if(gameArea[gridY][gridX] > 0) {
                 canRotate = false;
             }
         }
         //this piece part is right of the gamearea. Allow rotate only if it cn kick left
-        else if((pixelX/BLOCKSIZE) > 9) {
+        else if(gridX > 9) {
             bKickLeftNeeded = true;
         }
         //this piece part if left of the gamearea. Allow rotate only if it cn kick right
-        else if((pixelX/BLOCKSIZE) < 0) {
+        else if(gridX < 0) {
             bKickRightNeeded = true;
          }
-        else if (pixelY >= 304) {
+        else if (gridY >= 19) {
             canRotate = false;
         }
     }, nextBitmask);
 
     uint16_t saveRotationState = _rotationState;
-    //uint16_t saveColumn = _column;
 
-    rotateCCW(); //WTF why??
+    rotateCCW();
 
-    //TODO: canKickLeft gets the next rotation and thats not what we want!
     bCanKickLeft = canKickLeft(gameArea);
     bCanKickRight = canKickRight(gameArea);
 
     _rotationState = saveRotationState; //restore after test
-    //_column = saveColumn;
 
     //TODO: Write unit tests for all cases! i'm still not sure everyting is coverep properly
 
@@ -248,20 +243,10 @@ bool GamePiece::canRotateCCW(uint16_t gameArea[][kCols], int rows) {
 
 void GamePiece::rotateCCW() {
     if(!_inPlay) { return; }
-
-    //erase the piece at the old position
-    //erase(gfxContext); 
     
     //figure out the new rotation state
     //_rotationState = (_rotationState + 3) % 4; //for CW
     _rotationState = (_rotationState + 1) % 4;
-
-    //TODO: we probably don't want these here? 
-//   kickRight(); //if needed
-//   kickLeft(); //if needed
-
-    //now redraw
-    //draw(gfxContext);
 }
 
 void GamePiece::moveRight() {
@@ -291,8 +276,8 @@ void GamePiece::updateLocation(int column, int row) {
 void GamePiece::setInplay(bool inplay, uint16_t gameArea[][kCols], int rows) {
 
     if(!inplay) {
-        forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-            gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] = _color;
+        forEachActiveBlock([&](int gridX, int gridY) {
+            gameArea[gridY][gridX] = _color;
         });
     }
 
@@ -314,23 +299,23 @@ int GamePiece::getCurrentColumn() {
 
 void GamePiece::kickRight() {
 
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+    forEachActiveBlock([&](int gridX, int gridY) {
     
-        while(pixelX < 0) {
-            _column += 1;
-            pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
+        while(gridX < 0) {
+            _column++;
+            gridX++; 
         }                
     });
 }
 
 void GamePiece::kickLeft() {
 
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+    forEachActiveBlock([&](int gridX, int gridY) {
     
         //piece is already rotated by this point
-        while(pixelX > 144) {
-            _column -= 1;
-            pixelX = (c * BLOCKSIZE) + (_column * BLOCKSIZE);
+        while(gridX > 9) {
+            _column--;
+            gridX--; 
         }                
     });
 }
@@ -349,10 +334,10 @@ bool GamePiece::canKickLeft(uint16_t gameArea[][kCols]) {
     kickLeft();
 
     //at this point we have to check every piece one more time now that its rotated and kicked.              
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+    forEachActiveBlock([&](int gridX, int gridY) {
 
         //now just check for interference
-        if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
+        if(gameArea[gridY][gridX] > 0) {
             canKick = false; //bail out we are overlapping another piece
         }
     });
@@ -377,10 +362,10 @@ bool GamePiece::canKickRight(uint16_t gameArea[][kCols]) {
     kickRight();
 
     //at this point we have to check every piece one more time now that its rotated and kicked.              
-    forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+    forEachActiveBlock([&](int gridX, int gridY) {
 
         //now just check for interference
-        if(gameArea[(pixelY/BLOCKSIZE)][(pixelX/BLOCKSIZE)] > 0) {
+        if(gameArea[gridY][gridX] > 0) {
             canKick = false; //bail out we are overlapping another piece
         }
     });

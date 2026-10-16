@@ -47,8 +47,8 @@ void kick_right_when_out_of_bounds(void) {
     //TEST_MESSAGE(msg.c_str()); // This safely outputs to the test window!
 
     bool anyBlockOutOfBounds = false;   
-    piece.forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-        if (pixelX < 0) {
+    piece.forEachActiveBlock([&](int gridX, int gridY) {
+        if (gridX < 0) {
             anyBlockOutOfBounds = true;
         }
     });
@@ -68,8 +68,9 @@ void kick_left_when_out_of_bounds(void) {
     piece.kickLeft();
 
     bool anyBlockOutOfBounds = false;
-    piece.forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
-        if (pixelX < 9) {
+
+    piece.forEachActiveBlock([&](int gridX, int gridY) {
+        if (gridX > 9) {
             anyBlockOutOfBounds = true;
         }
     });
@@ -114,13 +115,13 @@ void can_kick_I_left_with_blocker(void) {
     piece.kickLeft();
 /*
     std::string msg = "";
-    piece.forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+    piece.forEachActiveBlock([&](int gridX, int gridY) {
         msg = "Color at [" 
-        + std::to_string(pixelY/16) 
+        + std::to_string(gridY) 
         + "][" 
-        + std::to_string(pixelX/16) 
+        + std::to_string(gridX) 
         + "]: "
-        + std::to_string(testGameArea[pixelY/16][pixelX/16]);
+        + std::to_string(testGameArea[gridY][gridX]);
         TEST_MESSAGE(msg.c_str());
     });
 */
@@ -164,15 +165,16 @@ void can_kick_I_right_with_blocker(void) {
     piece.kickLeft();
 
     std::string msg = "";
-    piece.forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+    piece.forEachActiveBlock([&](int gridX, int gridY) {
         msg = "Color at [" 
-        + std::to_string(pixelY/16) 
+        + std::to_string(gridY) 
         + "][" 
-        + std::to_string(pixelX/16) 
+        + std::to_string(gridX) 
         + "]: "
-        + std::to_string(testGameArea[pixelY/16][pixelX/16]);
+        + std::to_string(testGameArea[gridY][gridX]);
         TEST_MESSAGE(msg.c_str());
     });
+
 */
     TEST_ASSERT_FALSE(moveAllowed);
 }
@@ -293,13 +295,13 @@ void rotate_T_inbounds_with_left_blocker(void) {
 
     /* 
     std::string msg = "";
-    piece.forEachActiveBlock([&](int r, int c, int pixelX, int pixelY) {
+    piece.forEachActiveBlock([&](int gridX, int gridY) {
         msg = "Color at [" 
-        + std::to_string(pixelY/16) 
+        + std::to_string(gridY) 
         + "][" 
-        + std::to_string(pixelX/16) 
+        + std::to_string(gridX) 
         + "]: "
-        + std::to_string(testGameArea[pixelY/16][pixelX/16]);
+        + std::to_string(testGameArea[gridY][gridX]);
         TEST_MESSAGE(msg.c_str());
     });
     */

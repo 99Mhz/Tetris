@@ -64,7 +64,7 @@ class GamePiece {
 
     GamePiece(const PieceData& shape, int color, int column, int row, int rotation);
 
-    void forEachActiveBlock(std::function<void(int r, int c, int pixelX, int pixelY)> action, uint16_t bitmask = 0);
+    void forEachActiveBlock(std::function<void(int gridX, int gridY)> action, uint16_t bitmask = 0);
 
     void rotateCCW();
 
