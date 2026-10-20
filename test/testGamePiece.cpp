@@ -83,7 +83,6 @@ void can_kick_I_left_with_blocker(void) {
 
     /*
     I rotate/kicks left right into X is blocking
-    TODO: Active bug allowing this!
     ------------------
     |   |   |   | I ||
     ------------------
@@ -133,7 +132,6 @@ void can_kick_I_right_with_blocker(void) {
 
     /*
     I rotate/kicks left right into X is blocking
-    TODO: Active bug allowing this!
     ------------------
     || I |   |   |   ||
     ------------------
@@ -269,11 +267,6 @@ void rotate_T_inbounds_with_left_blocker(void) {
     |   |   |   |
     -------------
 
-    Should not be possible but wipes out rendering of X, 
-    and will keep faling if nothing is under
-
-    I does this too on rotate on third block up. probably others!
-
     */
 
     const uint8_t kGameRowCount = 20;
@@ -318,7 +311,7 @@ void rotate_I_inbounds_with_left_blocker(void) {
      ------------------
     |   |   |   | I  |
     ------------------
-    | X |   |   | I  |
+    |   |   | X | I  |
     ------------------
     |   |   |   | I  |
     ------------------ 
@@ -350,7 +343,6 @@ void roatate_and_kick_I_left_with_blocker(void) {
 
     /*
     I rotate/kicks left right into X is blocking
-    TODO: Active bug allowing this!
     ------------------
     |   |   |   | I ||
     ------------------
@@ -417,6 +409,7 @@ void move_T_left_with_blocker(void) {
 
 // Main test runner entry point
 int main(int argc, char **argv) {
+
     UNITY_BEGIN();
     
     /*********************************/
